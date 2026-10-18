@@ -953,6 +953,9 @@ DATA.fuel.forEach(f=>L.marker([f[1],f[2]],{icon:ico('ico-fuel','F',18),keyboard:
 const baseMarkers={};
 const LAUNCH_GLYPH='<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1.5 4.5 L12.5 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 3.5 h5 l-1 2 h-3 z" fill="currentColor"/><path d="M1 12.5 q1.5-1.4 3 0 t3 0 t3 0 t3 0" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
 const gmaps=q=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q);
+// exact pins open Google Maps on the coordinates themselves, plus driving directions for the tow
+const gmapsAt=at=>`https://www.google.com/maps/search/?api=1&query=${at[0].toFixed(5)},${at[1].toFixed(5)}`;
+const gdirAt=at=>`https://www.google.com/maps/dir/?api=1&destination=${at[0].toFixed(5)},${at[1].toFixed(5)}&travelmode=driving`;
 function basePopupHTML(k){
   const b=BASES[k], r=b.road, n=TRIPS.filter(t=>t.base===k).length, on=state.f.base===k, free=typeof MODE!=='undefined'&&MODE==='free';
   const north=['marsden','tutukaka','paihia','whangaroa'].includes(k);
@@ -961,7 +964,7 @@ function basePopupHTML(k){
     ${r.km?`<p class="lpop-row"><span>${r.km} km from Takapuna</span><span>about ${hm(r.min*1.15/60)} towing</span></p>`:''}
     <dl><dt>Ramp</dt><dd>${esc(r.ramp)}</dd><dt>Parking</dt><dd>${esc(r.park)}</dd><dt>Fees</dt><dd>${esc(r.fee)}${north?' Northern Gateway toll on the fastest route north.':''}</dd></dl>
     ${(DATA.exactBases||[]).includes(k)?'<p class="lpop-small">Ramp position from LINZ Topo50 map data (CC BY 4.0).</p>':''}
-    <p class="lpop-links">${DATA.baseBoaties&&DATA.baseBoaties[k]?`<a class="lpop-photo" href="${DATA.baseBoaties[k]}" target="_blank" rel="noopener">Photos and details on boatiesnz</a>`:''}${b.region==='Auckland'?`<a href="https://www.aucklandcouncil.govt.nz/en/parks-recreation/get-outdoors/coastal-marine/find-boat-ramp.html" target="_blank" rel="noopener">Council ramp guide</a>`:''}<a href="${gmaps(b.short+' boat ramp, New Zealand')}" target="_blank" rel="noopener">Google Maps</a></p>
+    <p class="lpop-links">${DATA.baseBoaties&&DATA.baseBoaties[k]?`<a class="lpop-photo" href="${DATA.baseBoaties[k]}" target="_blank" rel="noopener">Photos and details on boatiesnz</a>`:''}${b.region==='Auckland'?`<a href="https://www.aucklandcouncil.govt.nz/en/parks-recreation/get-outdoors/coastal-marine/find-boat-ramp.html" target="_blank" rel="noopener">Council ramp guide</a>`:''}${(DATA.exactBases||[]).includes(k)?`<a href="${gmapsAt(b.at)}" target="_blank" rel="noopener">Google Maps pin</a><a href="${gdirAt(b.at)}" target="_blank" rel="noopener">Directions</a>`:`<a href="${gmaps(b.short+' boat ramp, New Zealand')}" target="_blank" rel="noopener">Google Maps search</a>`}</p>
     ${free?`<button onclick="fsBaseClick('${k}')">Start from here</button>`:`<button onclick="filterBase('${k}')">${on?'Show all bases again':`Show the ${n} trip${n>1?'s':''} from here`}</button>`}
   </div>`;
 }
@@ -1801,7 +1804,7 @@ const FS={start:null,pts:[],fuelNow:null,res:null};
 const RAMPS=DATA.ramps, rampLayer=L.layerGroup();
 function rampLinks(r){
   const council=r.council?`<a href="${r.council}" target="_blank" rel="noopener">${r.councilArea?`Council page for ${esc(r.area)}`:'Council ramp guide'}</a>`:'';
-  return `<p class="lpop-links"><a class="lpop-photo" href="${r.boaties}" target="_blank" rel="noopener">Photos and details on boatiesnz</a>${council}<a href="${gmaps(r.name+', '+r.area+', New Zealand boat ramp')}" target="_blank" rel="noopener">Google Maps</a></p>`;
+  return `<p class="lpop-links"><a class="lpop-photo" href="${r.boaties}" target="_blank" rel="noopener">Photos and details on boatiesnz</a>${council}${r.exact?`<a href="${gmapsAt(r.at)}" target="_blank" rel="noopener">Google Maps pin</a><a href="${gdirAt(r.at)}" target="_blank" rel="noopener">Directions</a>`:`<a href="${gmaps(r.name+', '+r.area+', New Zealand boat ramp')}" target="_blank" rel="noopener">Google Maps search</a>`}</p>`;
 }
 function rampPopupHTML(r){
   const free=MODE==='free';
@@ -1809,7 +1812,7 @@ function rampPopupHTML(r){
     <p class="lpop-sum">${esc(r.bsum)}</p>
     <dl>${r.desc?`<dt>Council</dt><dd>${esc(r.desc)}</dd>`:''}${r.note?`<dt>Note</dt><dd>${esc(r.note)}</dd>`:''}</dl>
     ${rampLinks(r)}
-    <p class="lpop-small">${r.exact?'Pin position from LINZ Topo50 map data (CC BY 4.0).':'Pin position is approximate: LINZ\u2019s topographic data doesn\u2019t include this ramp. The boatiesnz page and Google Maps show the exact spot.'}</p>
+    <p class="lpop-small">${r.exact?'Pin position from LINZ Topo50 map data (CC BY 4.0).':'Pin position is approximate: LINZ\u2019s topographic data doesn\u2019t include this ramp, so the Google Maps link searches by name. The boatiesnz page shows the exact spot.'}</p>
     ${free?`<button onclick="fsRampStart('${r.id}')">${FS.start?'Add as a stop':'Start from here'}</button>`:''}
   </div>`;
 }
