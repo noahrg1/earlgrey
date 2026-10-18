@@ -563,6 +563,14 @@ body.free #passport{display:none}
 body:has(.gpshud:not([hidden])) .layers{bottom:96px}
 @media (max-width:760px){body:has(.gpshud:not([hidden])) .windbadge{display:none}}
 
+.wx-waves{display:flex;gap:8px;align-items:flex-start;margin:8px 0 2px;padding:6px 8px;font-size:13px;border-left:4px solid var(--sea);background:var(--panel);color:var(--ink)}
+.wx-waves svg{flex:none;color:var(--sea);margin-top:1px}
+.wx-waves b{font-family:var(--cond);font-size:16px}
+.wx-waves.rough{border-left-color:var(--fair)}.wx-waves.rough svg{color:var(--fair)}
+.wx-waves.big{border-left-color:var(--zone)}.wx-waves.big svg{color:var(--zone)}
+.wx-waves.none{border-left-color:var(--line);color:var(--muted)}
+.wb-waves{display:block;font-size:12.5px;color:var(--sea);margin-top:2px}
+
 </style>
 </head>
 <body>
@@ -594,7 +602,7 @@ body:has(.gpshud:not([hidden])) .layers{bottom:96px}
     <div class="hud" id="hud" aria-live="off"><b id="h-clock">07:30</b><span id="h-fuel">115 L</span><span id="h-doing"></span></div>
     <div class="windbadge" id="windbadge" aria-hidden="true">
       <svg width="34" height="34" viewBox="-17 -17 34 34"><circle r="15" fill="none" stroke="var(--line)"/><g id="wb-arrow"><path d="M0,-14 L0,9" stroke="var(--sea)" stroke-width="2.5"/><path d="M-5,4 L0,12 L5,4" fill="var(--sea)"/></g></svg>
-      <span><b id="wb-dir">SW</b><br><span id="wb-str">10 to 20 kn</span></span>
+      <span><b id="wb-dir">SW</b><br><span id="wb-str">10 to 20 kn</span><span id="wb-waves" class="wb-waves" hidden></span></span>
     </div>
     <div class="layers" role="group" aria-label="Map layers">
       <button data-layer="reach" aria-pressed="true">Reach rings</button>
@@ -648,6 +656,7 @@ body:has(.gpshud:not([hidden])) .layers{bottom:96px}
       </div>
       <div class="wx">
         <div class="chips"><button class="chip" id="wx-get">Get the forecast</button><button class="chip" id="wx-auto" aria-pressed="true">Use the forecast</button><a class="chip" id="wx-windy" href="https://www.windy.com/" target="_blank" rel="noopener">Open in Windy</a><button class="chip" id="wx-hourly" aria-pressed="false">Hourly</button><button class="chip" id="wx-show">Show the Windy map here</button></div>
+        <p class="wx-waves" id="wx-waves" hidden></p>
         <p class="wx-status" id="wx-status">Live wind for the selected trip, on your chosen date and departure time.</p>
         <div id="wx-strip" hidden></div>
         <iframe id="wx-frame" class="wx-frame" title="Windy wind map" hidden data-on="0" loading="lazy" src="about:blank"></iframe>
@@ -2109,10 +2118,10 @@ function wxDraw(){
   document.getElementById('wx-windy').href=`https://www.windy.com/?${la.toFixed(3)},${lo.toFixed(3)},10`;
   const fr=document.getElementById('wx-frame');
   if(fr&&fr.dataset.on==='1') fr.src=`https://embed.windy.com/embed2.html?lat=${la.toFixed(3)}&lon=${lo.toFixed(3)}&zoom=9&level=surface&overlay=wind&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C`;
-  if(!WX.last){strip.innerHTML='';return;}
-  const w=wxAtDeparture();
+  if(!WX.last){strip.innerHTML='';drawWaves(null);return;}
+  const w=wxAtDeparture(); drawWaves(w);
   const lbl=(typeof MODE!=='undefined'&&MODE==='free')?'your plan':esc(t.code);
-  el.innerHTML=`Forecast for ${lbl} at ${clockStr(w.h)}: <b>${compass(w.dir)} ${Math.round(w.kn)} kn</b>, gusting ${Math.round(w.gust)}${w.wave!=null?`. Waves <b>${w.wave.toFixed(1)} m</b>${w.swell!=null?`, swell ${w.swell.toFixed(1)} m from the ${compass(w.sdir)} at ${Math.round(w.sper)} s`:''}`:''}. ${WX.auto?'The dial is set from it.':'Tap "Use the forecast" to set the dial.'} <span class="wx-src">Open-Meteo, fetched ${clockStr(WX.last.fetched.getHours()+WX.last.fetched.getMinutes()/60)}</span>`;
+  el.innerHTML=`Forecast for ${lbl} at ${clockStr(w.h)}: <b>${compass(w.dir)} ${Math.round(w.kn)} kn</b>, gusting ${Math.round(w.gust)}. ${WX.auto?'The dial is set from it.':'Tap "Use the forecast" to set the dial.'} <span class="wx-src">Open-Meteo, fetched ${clockStr(WX.last.fetched.getHours()+WX.last.fetched.getMinutes()/60)}</span>`;
   // the day as a row of arrows, sized and coloured by strength
   const hrs=WX.last.hours.filter(x=>x.h>=5&&x.h<=21), W=640, cw=W/hrs.length, dep=w.h;
   let g='';
@@ -2135,6 +2144,19 @@ function initWx(){
   const dial=document.getElementById('dial');
   ['pointerdown','keydown'].forEach(ev=>dial.addEventListener(ev,()=>{if(WX.auto&&WX.last){WX.auto=false;au.setAttribute('aria-pressed','false');wxDraw();}}));
   document.querySelectorAll('[data-seg=windStr] button').forEach(b=>b.addEventListener('click',()=>{if(WX.auto&&WX.last){WX.auto=false;au.setAttribute('aria-pressed','false');wxDraw();}}));
+}
+
+const WAVE_ICON='<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2 9c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2M2 14c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2M2 19c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const SEA_NAME={glassy:'Glassy',chop:'Gulf chop',lumpy:'Lumpy'};
+function drawWaves(w){
+  const el=document.getElementById('wx-waves'), wb=document.getElementById('wb-waves');
+  if(!w){el.hidden=true;wb.hidden=true;return;}
+  el.hidden=false;
+  if(w.wave==null){el.className='wx-waves none';el.innerHTML=`${WAVE_ICON}<span>No wave forecast for this date yet: wave forecasts reach about a week ahead.</span>`;wb.hidden=true;return;}
+  const level=w.wave<0.5?'calm':w.wave<1.25?'mod':w.wave<2?'rough':'big';
+  el.className='wx-waves '+level;
+  el.innerHTML=`${WAVE_ICON}<span><b>Waves ${w.wave.toFixed(1)} m</b>${w.swell!=null?`, swell ${w.swell.toFixed(1)} m from the ${compass(w.sdir)} every ${Math.round(w.sper)} s`:''} at ${clockStr(w.h)}.${WX.auto?` Sea state set to ${SEA_NAME[state.sea]}.`:''}${w.wave>=1.5?' Open-water trips are off the wind picks.':''}</span>`;
+  wb.hidden=false; wb.textContent=`Waves ${w.wave.toFixed(1)} m${w.swell!=null?`, swell ${w.swell.toFixed(1)} m`:''}`;
 }
 /* ================= TIDES: harmonic model fitted to LINZ's official Mātiatia Bay predictions =================
    Checked against LINZ's own December 2026 table: about 7 minutes and 6 cm RMS. Used for the Hauraki Gulf only;
@@ -2387,6 +2409,7 @@ function renderBrief(){
   else {vClass='bad';vText=`Not viable at these settings: the gauge would read about ${fmt(Math.max(c.min,0),0)} L. Add a refuel or cut a leg.`;}
   // day-light notes
   const notes=[];
+  if(typeof WX!=='undefined'&&WX.last&&WX.last.trip===t.code){const w=wxAtDeparture();if(w&&w.wave!=null)notes.push(`<span class="note${w.wave>=1.5?' warn':''}">Waves ${w.wave.toFixed(1)} m${w.swell!=null?`, swell ${w.swell.toFixed(1)} m from the ${compass(w.sdir)}`:''} at departure</span>`);}
   if(c.tidePlan&&!c.tidePlan.none){const tp=c.tidePlan;notes.push(`<span class="note tide">Tide-timed: leave ${clockStr(tp.dep)} to reach ${esc(tp.stop.split(' and ')[0])} ${tp.before} min before high water (${clockStr(tp.hw)}, ${tp.hwm.toFixed(1)} m at Mātiatia)</span>`);}
   else if(c.tidePlan&&c.tidePlan.none) notes.push(`<span class="note warn">${c.tidePlan.wrongDay?`The market runs on Saturdays only.`:`No daylight tide window on ${dateLabel(0)}: you'd be up the river at the wrong state of tide or home after dark.`}${c.tidePlan.alt.length?` Good days nearby: ${c.tidePlan.alt.map(a=>`<button class="linkbtn" onclick="pickDate('${a.date}')">${new Date(a.date+'T12:00:00Z').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'})}, leave ${clockStr(a.dep)}</button>`).join(', ')}.`:''}</span>`);
   if(c.sunsetPlan){const sp=c.sunsetPlan;notes.push(`<span class="note gold">Golden hour: leave ${clockStr(sp.dep)}, reach ${esc(sp.stop.replace(/, Waiheke$/,''))} ${clockStr(sp.arrive)}, sunset ${clockStr(sp.sun)}</span>`);const end1=c.days[0].end, tw=sp.sun+0.45; if(t.days.length>1&&end1<=tw)notes.push(`<span class="note gold">Berthed by ${clockStr(end1)}, in the last of the twilight. Home in daylight on day 2</span>`);else if(end1>sp.sun)notes.push(`<span class="note warn">Day 1 ends ${clockStr(end1)}, after dark: navigation lights on, and slow down</span>`);}
