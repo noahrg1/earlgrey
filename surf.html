@@ -215,7 +215,18 @@ const DESTS = {
   'bali':       {name:'Bali', region:'far', hours:10, how:'about 9 h 30 direct flight to Denpasar'},
   'oahu':       {name:'Hawaiʻi, Oʻahu', region:'far', hours:10, how:'about 9 h direct flight to Honolulu'},
   'socal':      {name:'Southern California', region:'far', hours:14, how:'about 12 h direct flight to Los Angeles'},
-  'chile':      {name:'Chile, Pichilemu', region:'far', hours:15, how:'about 11 h direct flight to Santiago plus 3 h drive'}
+  'chile':      {name:'Chile, Pichilemu', region:'far', hours:15, how:'about 11 h direct flight to Santiago plus 3 h drive'},
+  'taiwan':     {name:'Taiwan, Taitung', region:'far', hours:20, how:'direct flight to Taipei, then a domestic flight to Taitung'},
+  'chiba':      {name:'Japan, Chiba', region:'far', hours:16, how:'direct flight to Tokyo Narita, then a 1 h 15 drive'},
+  'miyazaki':   {name:'Japan, Miyazaki', region:'far', hours:20, how:'direct flight to Tokyo, then a domestic flight to Miyazaki'},
+  'nicaragua':  {name:'Nicaragua, Rancho Santana', region:'far', hours:26, how:'via Houston to Managua, then a 2 h 30 drive',
+                 note:'Rancho Santana guests get private access to the resort’s five beaches, three of which have surf, and the coast gets offshore winds most of the year.'},
+  'costarica':  {name:'Costa Rica, Peninsula Papagayo', region:'far', hours:26, how:'via Houston to Liberia, then a boat from the Papagayo resorts',
+                 note:'Witches Rock and Ollie’s Point are inside Santa Rosa National Park and reached by boat. The Four Seasons at Peninsula Papagayo runs surf trips to both.'},
+  'puntamita':  {name:'Mexico, Punta Mita', region:'far', hours:21, how:'via Los Angeles to Puerto Vallarta, then a 45 min drive',
+                 note:'El Faro is boat access only, except from a handful of La Punta Estates villas with private access to the break.'},
+  'oaxaca':     {name:'Mexico, Barra de la Cruz', region:'far', hours:27, how:'via Houston and Mexico City to Huatulco',
+                 note:'Hacienda Mojon is a five-room boutique surf resort near Barra de la Cruz, with private daily surf guiding.'}
 };
 // offshore = direction the offshore wind blows FROM; win = swell directions (FROM, clockwise) the spot picks up.
 // type: point, reef, beach. hand: R right, L left, P peaks both ways. level: easy, int, adv.
@@ -290,6 +301,17 @@ const SPOTS = [
   {id:'sanonofre',name:'San Onofre, Old Man’s',dest:'socal',lat:33.36,lon:-117.58,offshore:45,win:[180,290],type:'reef',hand:'P',level:'easy'},
   {id:'trestles',name:'Lower Trestles',dest:'socal',lat:33.37,lon:-117.60,offshore:45,win:[170,270],type:'reef',hand:'P',level:'adv'},
   {id:'puntilla',name:'La Puntilla',dest:'chile',lat:-34.38,lon:-72.03,offshore:135,win:[180,270],type:'point',hand:'L',level:'easy'},
+  {id:'jinzun',name:'Jinzun Harbor',dest:'taiwan',lat:22.83,lon:121.22,offshore:270,win:[30,160],type:'beach',hand:'P',level:'int'},
+  {id:'donghe',name:'Donghe Rivermouth',dest:'taiwan',lat:22.97,lon:121.32,offshore:270,win:[40,170],type:'point',hand:'L',level:'int'},
+  {id:'ichinomiya',name:'Ichinomiya (Tsurigasaki)',dest:'chiba',lat:35.37,lon:140.42,offshore:270,win:[40,200],type:'beach',hand:'P',level:'int'},
+  {id:'kisakihama',name:'Kisakihama',dest:'miyazaki',lat:31.85,lon:131.48,offshore:250,win:[40,170],type:'beach',hand:'P',level:'int'},
+  {id:'santana',name:'Playa Santana',dest:'nicaragua',lat:11.44,lon:-86.10,offshore:60,win:[180,270],type:'beach',hand:'P',level:'int'},
+  {id:'colorado',name:'Playa Colorado',dest:'nicaragua',lat:11.40,lon:-86.08,offshore:60,win:[190,260],type:'beach',hand:'P',level:'int'},
+  {id:'witches',name:'Witches Rock',dest:'costarica',lat:10.835,lon:-85.73,offshore:45,win:[180,280],type:'beach',hand:'P',level:'int'},
+  {id:'ollies',name:'Ollie’s Point',dest:'costarica',lat:10.87,lon:-85.80,offshore:45,win:[200,240],type:'point',hand:'R',level:'int'},
+  {id:'elfaro',name:'El Faro',dest:'puntamita',lat:20.76,lon:-105.53,offshore:45,win:[200,310],type:'point',hand:'R',level:'int'},
+  {id:'lalancha',name:'La Lancha',dest:'puntamita',lat:20.77,lon:-105.49,offshore:60,win:[220,320],type:'reef',hand:'P',level:'int'},
+  {id:'barra',name:'Barra de la Cruz',dest:'oaxaca',lat:15.82,lon:-95.955,offshore:280,win:[150,210],type:'point',hand:'R',level:'adv'},
   {id:'lobos',name:'Punta de Lobos',dest:'chile',lat:-34.42,lon:-72.07,offshore:90,win:[180,270],type:'point',hand:'L',level:'adv'}
 ];
 // Surfline links, each checked to exist. kind 'spot' is the spot's own page; 'map' is the nearest regional map page.
@@ -354,6 +376,15 @@ const SURFLINE = {
   malibu:{kind:'spot',label:'Malibu First Point',url:SL+'surf-report/malibu-first-point/584204214e65fad6a7709b9f'},
   sanonofre:{kind:'spot',label:'San Onofre State Beach',url:SL+'surf-report/old-man-s-at-san-onofre/584204204e65fad6a77099d4'},
   trestles:{kind:'spot',label:'Lower Trestles',url:SL+'surf-report/lower-trestles/5842041f4e65fad6a770888a'},
+  jinzun:{kind:'spot',label:'Jinzun Harbor',url:SL+'surf-report/jinzun-harbor/584204204e65fad6a770961b'},
+  donghe:{kind:'map',label:'Taitung map',url:SL+'surf-reports-forecasts-cams/taiwan/taiwan/taitung/1668292'},
+  ichinomiya:{kind:'spot',label:'Ichinomiya',url:SL+'surf-report/ichinomiya/584204204e65fad6a7709736'},
+  kisakihama:{kind:'spot',label:'Kisakihama',url:SL+'surf-report/kisakihama/5842041f4e65fad6a7708dad'},
+  witches:{kind:'spot',label:'Witches Rock',url:SL+'surf-report/witches-rock/5842041f4e65fad6a7708b99'},
+  ollies:{kind:'spot',label:'Ollie’s Point',url:SL+'surf-report/ollie-s-point/5842041f4e65fad6a7708b98'},
+  elfaro:{kind:'spot',label:'El Faro',url:SL+'surf-report/el-faro/584204204e65fad6a77099db'},
+  lalancha:{kind:'spot',label:'La Lancha',url:SL+'surf-report/la-lancha/584204204e65fad6a77091f2'},
+  barra:{kind:'spot',label:'Barra de la Cruz',url:SL+'surf-report/barra-de-la-cruz/584204204e65fad6a7709244'},
   sandybay:{kind:'map',...SL_MAPS.northland}, waipu:{kind:'map',...SL_MAPS.northland},
   muriwai:{kind:'map',...SL_MAPS.north}, sunset:{kind:'map',...SL_MAPS.north}, mount:{kind:'map',...SL_MAPS.north}, lyall:{kind:'map',...SL_MAPS.north},
   indicators:{kind:'map',...SL_MAPS.raglan}, ngarunui:{kind:'map',...SL_MAPS.raglan},
@@ -367,6 +398,8 @@ const DRIVE = m => [['drive',m]];
 // Air NZ's direct Auckland–Sunshine Coast flights are seasonal (5 June to 30 October in 2026); outside that, fly to Brisbane and drive.
 const SUNCOAST_DIRECT = date => { const md = date.slice(5); return md >= '06-05' && md <= '10-30'; };
 const DOM = (flight, to, onward, label) => [['drive to Auckland Airport',40],['domestic check-in',60],['flight to '+to,flight],['bags and rental car',30],[label,onward]];
+// Long-haul via a US hub: you clear US immigration even when connecting, so the layover is padded.
+const VIA_US = (hub, flight, rest) => [['drive to Auckland Airport',40],['international check-in',120],['flight to '+hub,flight],['US transit and layover',180],...rest];
 const INTL = (flight, to, onward, label, arr=45) => [['drive to Auckland Airport',40],['international check-in',120],['flight to '+to,flight],['customs and bags',arr],[label,onward]];
 const DOOR = {
   wrecks:DRIVE(285), peaks:DRIVE(290), sandybay:DRIVE(150), waipu:DRIVE(90),
@@ -398,7 +431,18 @@ const DOOR = {
   canggu:INTL(570,'Denpasar',60,'drive to Canggu',60), medewi:INTL(570,'Denpasar',180,'drive to Medewi',60), keramas:INTL(570,'Denpasar',60,'drive to Keramas',60), uluwatu:INTL(570,'Denpasar',50,'drive to Uluwatu',60),
   waikiki:INTL(525,'Honolulu',30,'drive to Waikīkī',60), chuns:INTL(525,'Honolulu',60,'drive to the North Shore',60),
   malibu:INTL(720,'Los Angeles',50,'drive to Malibu',75), sanonofre:INTL(720,'Los Angeles',105,'drive to San Onofre',75), trestles:INTL(720,'Los Angeles',105,'drive and walk to Trestles',75),
-  puntilla:INTL(660,'Santiago',180,'drive to Pichilemu',60), lobos:INTL(660,'Santiago',190,'drive to Punta de Lobos',60)
+  puntilla:INTL(660,'Santiago',180,'drive to Pichilemu',60),
+  jinzun:[...INTL(685,'Taipei',180,'transfer to Songshan and wait for the Taitung flight'),['flight to Taitung',60],['bags',15],['drive to Jinzun',40]],
+  donghe:[...INTL(685,'Taipei',180,'transfer to Songshan and wait for the Taitung flight'),['flight to Taitung',60],['bags',15],['drive to Donghe',55]],
+  ichinomiya:INTL(665,'Tokyo Narita',75,'drive to Ichinomiya',60),
+  kisakihama:[...INTL(665,'Tokyo Narita',210,'transfer to Haneda and wait for the Miyazaki flight',60),['flight to Miyazaki',110],['bags',15],['drive to Kisakihama',25]],
+  santana:VIA_US('Houston',825,[['flight to Managua',210],['customs and bags',60],['drive to Rancho Santana',150]]),
+  colorado:VIA_US('Houston',825,[['flight to Managua',210],['customs and bags',60],['drive to Playa Colorado',155]]),
+  witches:VIA_US('Houston',825,[['flight to Liberia',225],['customs and bags',45],['drive to Papagayo and boat to the break',105]]),
+  ollies:VIA_US('Houston',825,[['flight to Liberia',225],['customs and bags',45],['drive to Papagayo and boat to the break',90]]),
+  elfaro:VIA_US('Los Angeles',720,[['flight to Puerto Vallarta',195],['customs and bags',60],['drive to Punta Mita',45]]),
+  lalancha:VIA_US('Los Angeles',720,[['flight to Puerto Vallarta',195],['customs and bags',60],['drive to La Lancha',40]]),
+  barra:VIA_US('Houston',825,[['flight to Mexico City',140],['customs and connection',150],['flight to Huatulco',75],['bags',15],['drive to Barra de la Cruz',45]]), lobos:INTL(660,'Santiago',190,'drive to Punta de Lobos',60)
 };
 const legsFor = (id, date) => { const v = DOOR[id]; if(!v) return null; return typeof v==='function' ? v(date || DAYS[0] || nzToday()) : v; };
 const doorMin = (id, date) => (legsFor(id,date)||[]).reduce((a,[,m])=>a+m,0);
@@ -663,6 +707,7 @@ function renderDetail(){
     <div class="facts">
       ${run ? `<p><b>Strike window:</b> ${esc(run)}.</p>` : ''}
       <p>${esc(doorLong(fast.id, DAYS[0]))}</p>
+      ${s.dest.note ? `<p>${esc(s.dest.note)}</p>` : ''}
       ${temp!=null ? `<p>${esc(wetsuit(temp))}</p>` : ''}
     </div>
     <div class="week" role="group" aria-label="Best session each day">
