@@ -559,7 +559,7 @@ function syncControls(){
 // Open-Meteo's free tier counts every location in a request as a call (limits: 600 a minute, 5,000 an hour, 10,000 a day).
 // To stay well inside them: spots sharing a forecast grid point are fetched once, swell, tide and water temperature
 // come in one request, and the forecast is saved in this browser for an hour so reloads don't call the API.
-const CACHE_KEY = 'swellops-forecast-v2', CACHE_MS = 60*60*1000;
+const CACHE_KEY = 'swellops-forecast-v3', CACHE_MS = 60*60*1000;
 function forecastPoints(){
   const groups = new Map();
   SPOTS.forEach(s=>{ const k = `${Math.round(s.lat*10)/10},${Math.round(s.lon*10)/10}`;
@@ -575,51 +575,81 @@ async function getJSON(url){
 function readCache(){ try{ const c = JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); return c && c.v===SPOTS.length ? c : null; }catch(e){ return null; } }
 function writeCache(c){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }catch(e){} }
 
+async function fetchChunked(baseUrl, pts, vars, size=20){
+  // Split into smaller requests so one bad point or a size limit can't wipe out the whole forecast.
+  const out = new Array(pts.length).fill(null), errors = [];
+  for(let i=0;i<pts.length;i+=size){
+    const chunk = pts.slice(i,i+size);
+    const url = `${baseUrl}?latitude=${chunk.map(p=>p.lat).join(',')}&longitude=${chunk.map(p=>p.lon).join(',')}&timezone=auto&forecast_days=8&${vars}`;
+    try{
+      let j = await getJSON(url); if(!Array.isArray(j)) j=[j];
+      j.forEach((r,k)=> out[i+k] = r);
+    }catch(e){
+      errors.push(e);
+      if(chunk.length>1){ // retry this chunk one point at a time to isolate a bad location
+        for(let k=0;k<chunk.length;k++){
+          const p = chunk[k];
+          try{ const r = await getJSON(`${baseUrl}?latitude=${p.lat}&longitude=${p.lon}&timezone=auto&forecast_days=8&${vars}`); out[i+k] = Array.isArray(r) ? r[0] : r; }
+          catch(e2){ errors.push(e2); if(e2.limited) return {out, errors, limited:true}; }
+        }
+      }
+      if(e.limited) return {out, errors, limited:true};
+    }
+  }
+  return {out, errors};
+}
+
 async function load(force){
   $('status').textContent = 'Loading the forecast…'; $('error').innerHTML = '';
   const pts = forecastPoints();
   let data = readCache(), note = '';
   if(force || !data || Date.now()-data.t > CACHE_MS){
-    const base = `latitude=${pts.map(p=>p.lat).join(',')}&longitude=${pts.map(p=>p.lon).join(',')}&timezone=auto&forecast_days=8`;
-    try{
-      let [m, w] = await Promise.all([
-        getJSON(`https://marine-api.open-meteo.com/v1/marine?${base}&hourly=swell_wave_height,swell_wave_period,swell_wave_direction,sea_level_height_msl,sea_surface_temperature`),
-        getJSON(`https://api.open-meteo.com/v1/forecast?${base}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn`)
-      ]);
-      if(!Array.isArray(m)) m=[m]; if(!Array.isArray(w)) w=[w];
-      data = {t:Date.now(), v:SPOTS.length, m, w};
-      writeCache(data);
-    }catch(e){
-      if(data){ note = ` Showing the saved forecast because Open-Meteo didn’t respond (${e.message}).`; }
+    const [m, w, x] = await Promise.all([
+      fetchChunked('https://marine-api.open-meteo.com/v1/marine', pts, 'hourly=swell_wave_height,swell_wave_period,swell_wave_direction'),
+      fetchChunked('https://api.open-meteo.com/v1/forecast', pts, 'hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn'),
+      fetchChunked('https://marine-api.open-meteo.com/v1/marine', pts, 'hourly=sea_level_height_msl,sea_surface_temperature').catch(()=>({out:[],errors:[]}))
+    ]);
+    const okPts = pts.filter((_,i)=>m.out[i]?.hourly && w.out[i]?.hourly).length;
+    if(okPts === 0){
+      const e = m.errors[0] || w.errors[0];
+      if(data){ note = ` Showing the saved forecast because Open-Meteo didn’t respond${e?` (${e.message})`:''}.`; }
       else{
         $('status').textContent = '';
-        $('error').innerHTML = `<div class="err">${e.limited
-          ? `Open-Meteo’s free usage limit has been reached for now (${esc(e.message)}). This usually comes from refreshing many times in a short period. The minute limit clears within a minute and the hourly one within the hour; after that, the forecast is saved in this browser so reloads won’t count.`
-          : `Couldn’t load the forecast from Open-Meteo: ${esc(e.message)}. Check your connection and reload the page.`}</div>`;
+        const limited = m.limited || w.limited || (e && e.limited);
+        $('error').innerHTML = `<div class="err">${limited
+          ? `Open-Meteo’s free usage limit has been reached for now${e?` (${esc(e.message)})`:''}. The minute limit clears within a minute and the hourly one within the hour. After that the forecast is saved in this browser, so reloads won’t count.`
+          : `Couldn’t load the forecast from Open-Meteo${e?`: ${esc(e.message)}`:''}. Check your connection and reload.`}</div>`;
         return;
       }
+    } else {
+      data = {t:Date.now(), v:SPOTS.length, m:m.out, w:w.out, x:x.out||[]};
+      writeCache(data);
     }
   }
   RAW = {};
+  let loaded = 0;
   pts.forEach((p,i)=>{
-    const mh = data.m[i]?.hourly, wh = data.w[i]?.hourly;
+    const mh = data.m[i]?.hourly, wh = data.w[i]?.hourly, xh = data.x?.[i]?.hourly;
     let rows = [];
     if(mh && wh){
-      const wind = {};
+      const wind = {}, extra = {};
       wh.time.forEach((t,j)=> wind[t] = {kn:wh.wind_speed_10m[j], wd:wh.wind_direction_10m[j], gust:wh.wind_gusts_10m[j]});
+      if(xh) xh.time.forEach((t,j)=> extra[t] = {tide:xh.sea_level_height_msl?.[j] ?? null, sst:xh.sea_surface_temperature?.[j] ?? null});
       rows = mh.time.map((t,j)=>({t, date:t.slice(0,10), hour:+t.slice(11,13),
         m:mh.swell_wave_height[j], p:mh.swell_wave_period[j], sd:mh.swell_wave_direction[j],
-        tide:mh.sea_level_height_msl?.[j] ?? null, sst:mh.sea_surface_temperature?.[j] ?? null,
-        ...(wind[t]||{kn:null,wd:null,gust:null})}));
+        ...(wind[t]||{kn:null,wd:null,gust:null}), ...(extra[t]||{tide:null,sst:null})}));
       rows.forEach((h,j,a)=>{ const n=a[j+1]; h.trend = (h.tide!=null && n && n.tide!=null) ? (n.tide>h.tide?'rising':'falling') : null; });
+      if(rows.some(h=>h.m!=null && h.kn!=null)) loaded += p.ids.length;
     }
     p.ids.forEach(id=> RAW[id] = rows);
   });
   const today = nzToday();
   DAYS = Array.from({length:HORIZON},(_,i)=>addDays(today,i));
   const mins = Math.round((Date.now()-data.t)/60000);
-  $('status').innerHTML = `Forecast ${mins<1?'just updated':`from ${mins} min ago`}.${esc(note)} <button class="back" id="refresh" style="margin:0 0 0 6px;font-size:13px">Refresh</button>`;
+  const cover = loaded < SPOTS.length ? ` Forecast data for ${loaded} of ${SPOTS.length} spots.` : '';
+  $('status').innerHTML = `Forecast ${mins<1?'just updated':`from ${mins} min ago`}.${esc(cover)}${esc(note)} <button class="back" id="refresh" style="margin:0 0 0 6px;font-size:13px">Refresh</button>`;
   $('refresh').addEventListener('click',()=>load(true));
+  if(loaded < SPOTS.length/2) $('error').innerHTML = `<div class="err">Only ${loaded} of ${SPOTS.length} spots got forecast data, so most will show 0. Select Refresh in a minute; if it keeps happening, Open-Meteo may be limiting requests.</div>`;
   render();
 }
 
