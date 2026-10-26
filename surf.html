@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Swell Ops: where to strike this week</title>
+<meta name="theme-color" content="#182027">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gulf Ops">
+<link rel="stylesheet" href="leaflet.css">
+<style>
+/* Gulf Ops design tokens, so both pages read as one app */
+:root{
+  --bg:#E6E8E3; --panel:#F3F4F0; --ink:#1E262B; --muted:#58646A; --line:#C2C8C3;
+  --sand:#7D6A3E; --signal:#D9520B; --sea:#2D6C7B; --fair:#B07A12; --zone:#B0362C;
+  --cond:"DIN Condensed","DIN Alternate","Bahnschrift SemiCondensed","Bahnschrift","Roboto Condensed","Arial Narrow",sans-serif;
+  /* great-day tiers: none, 1, 2–3, 4–5, 6–7 */
+  --t0:#9AA4A8; --t1:#8FC0CB; --t2:var(--sea); --t3:var(--fair); --t4:var(--signal);
+  --g-great:var(--signal); --g-good:var(--sea); --g-ok:#BCD4D9; --g-poor:#DADFDB;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#182027; --panel:#202930; --ink:#DCE0D9; --muted:#8E9A9F; --line:#33404A;
+    --sand:#C8B88C; --signal:#FF6A1A; --sea:#6FB3C2; --fair:#E3B04B; --zone:#E0584C;
+    --t0:#5E6E78; --t1:#3F7F8C; --g-ok:#2A4752; --g-poor:#26313A;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+h1,h2,h3{font-family:var(--cond);font-weight:700;letter-spacing:.03em;margin:0}
+
+.mast{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg);position:relative;z-index:900}
+.wordmark{font-family:var(--cond);font-weight:700;font-size:22px;letter-spacing:.08em;text-transform:uppercase;line-height:1}
+.wordmark small{display:block;font-family:system-ui,sans-serif;font-weight:400;letter-spacing:0;text-transform:none;font-size:12px;color:var(--muted);margin-top:3px}
+.apps{display:flex;border:1px solid var(--line)}
+.apps a{padding:6px 14px;font-size:14px;color:var(--muted);text-decoration:none}
+.apps a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.apps a:hover:not([aria-current]){color:var(--ink)}
+
+.app{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,430px);height:calc(100dvh - 58px)}
+#map{height:100%;background:var(--bg)}
+.panel{overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:18px 18px 40px}
+
+.lead h1{font-size:clamp(38px,5vw,54px);line-height:.85;text-transform:uppercase}
+.lead p{margin:8px 0 0;font-size:14px;color:var(--muted);max-width:42ch}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:14px 0 0}
+.chips button{border:1px solid var(--line);background:none;padding:4px 10px;font-size:13.5px;cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+details.settings{margin:10px 0 0;border:1px solid var(--line);padding:7px 10px}
+details.settings summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin:10px 0 4px}
+.grid2 label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:2px}
+.grid2 select{width:100%;background:var(--bg);border:1px solid var(--line);padding:5px 6px;font-size:14px}
+.settings .fine{font-size:12.5px;color:var(--muted);margin:8px 0 2px}
+
+.legend{display:flex;flex-wrap:wrap;gap:3px 12px;margin:14px 0 2px;font-size:13px;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.status{font-size:12.5px;color:var(--muted);margin-top:4px}
+
+.best{margin:16px 0 0;padding-left:10px;border-left:3px solid var(--signal);font-size:14px}
+.list{list-style:none;margin:12px 0 0;padding:0}
+.list li{border-top:1px solid var(--line)}
+.item{all:unset;box-sizing:border-box;display:grid;grid-template-columns:42px 1fr;gap:12px;width:100%;padding:11px 2px;cursor:pointer;align-items:start}
+.item:focus-visible{outline:2px solid var(--signal)}
+.item:hover .nm{color:var(--signal)}
+.badge{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font:700 23px/1 var(--cond);color:#fff;font-variant-numeric:tabular-nums}
+.nm{font-family:var(--cond);font-weight:700;font-size:19px;letter-spacing:.05em;text-transform:uppercase;line-height:1.05}
+.sub{display:block;color:var(--muted);font-size:13px;margin-top:3px;line-height:1.35}
+.strip{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:7px}
+.strip i{height:7px;background:var(--g-poor)}
+
+.t0{background:var(--t0)} .t1{background:var(--t1)} .t2{background:var(--t2)} .t3{background:var(--t3)} .t4{background:var(--t4)}
+@media (prefers-color-scheme:dark){ .t2,.t3{color:#182027} }
+.g-great{background:var(--g-great)!important} .g-good{background:var(--g-good)!important} .g-ok{background:var(--g-ok)!important} .g-poor{background:var(--g-poor)!important}
+
+.back{border:0;background:none;color:var(--muted);cursor:pointer;padding:0;font-size:13.5px;margin-bottom:12px;text-decoration:underline;text-underline-offset:3px}
+.back:hover{color:var(--ink)}
+.dhead{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.dhead .badge{width:60px;height:60px;font-size:34px}
+.dhead h2{font-size:clamp(34px,4.5vw,46px);line-height:.88;text-transform:uppercase}
+.dhead .verdict{color:var(--muted);font-size:14px;margin-top:5px}
+.facts{margin:14px 0 0;font-size:14px}
+.facts p{margin:0 0 6px}
+.facts p:first-child{padding-left:10px;border-left:3px solid var(--signal)}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:16px 0 4px}
+.day{all:unset;box-sizing:border-box;padding:7px 3px;text-align:center;cursor:pointer;min-height:74px;display:flex;flex-direction:column;justify-content:space-between;color:var(--ink)}
+.day:focus-visible{outline:2px solid var(--ink)}
+.day b{font:700 14px/1 var(--cond);letter-spacing:.05em;text-transform:uppercase}
+.day .n{font:700 24px/1 var(--cond);font-variant-numeric:tabular-nums}
+.day small{font-size:10.5px;line-height:1.1;overflow:hidden;text-overflow:ellipsis}
+.day.g-great,.day.g-good{color:#fff}
+@media (prefers-color-scheme:dark){ .day.g-good{color:#182027} }
+.day[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--ink)}
+.cal{margin-top:12px;border:1px solid var(--line);background:none;padding:6px 12px;cursor:pointer;font-size:14px}
+.cal:hover{border-color:var(--ink)}
+h3{font-size:20px;text-transform:uppercase;margin:24px 0 6px}
+.spots{list-style:none;margin:0;padding:0}
+.spots li{border-top:1px solid var(--line);padding:10px 0}
+.spots .sn{font-family:var(--cond);font-weight:700;font-size:17px;letter-spacing:.05em;text-transform:uppercase}
+.spots .sd{color:var(--muted);font-size:13px}
+.sstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:6px}
+.sstrip button{border:0;height:26px;font:700 14px/1 var(--cond);cursor:pointer;color:var(--ink);font-variant-numeric:tabular-nums}
+.sstrip button.g-great,.sstrip button.g-good{color:#fff}
+@media (prefers-color-scheme:dark){ .sstrip button.g-good{color:#182027} }
+.sstrip button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--ink)}
+.sl{color:var(--sea);font-weight:600}
+.hours{margin-top:10px;background:var(--bg);border:1px solid var(--line);padding:10px 12px;font-size:13.5px}
+.hours table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.hours th,.hours td{text-align:left;padding:4px;border-bottom:1px solid var(--line)}
+.hours th{color:var(--muted);font-weight:500}
+.empty{color:var(--muted);font-size:14px}
+.err{border:1px solid var(--zone);border-left:4px solid var(--zone);padding:10px 12px;margin-top:14px;font-size:14px}
+.note{font-size:12.5px;color:var(--muted);margin-top:26px}
+
+.pin{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 19px/1 var(--cond);color:#fff;border:2px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer;font-variant-numeric:tabular-nums}
+.pin.sel{outline:3px solid var(--ink);outline-offset:2px}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.leaflet-container{font-family:system-ui,-apple-system,sans-serif;background:var(--bg)}
+
+@media (max-width:860px){
+  .wordmark small{display:none}
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:50vh auto;height:auto}
+  #map{height:50vh}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+}
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="wordmark">Swell Ops<small>Surf strike planner from Birkenhead. NZ, the Pacific and direct flights from Auckland</small></div>
+  <nav class="apps" aria-label="Planner"><a href="./">Boat</a><a href="surf.html" aria-current="page">Surf</a></nav>
+</header>
+<div class="app">
+  <div id="map" role="region" aria-label="Map of surf destinations, coloured by great days this week"></div>
+  <aside class="panel" id="panel">
+    <div class="lead">
+      <h1>Where to strike</h1>
+      <p>Each destination is coloured by how many great days it gets in the next 7 days, for your settings.</p>
+    </div>
+    <div class="chips" role="group" aria-label="Region" id="region">
+      <button data-v="all" aria-pressed="true">Everywhere</button>
+      <button data-v="nz" aria-pressed="false">NZ</button>
+      <button data-v="islands" aria-pressed="false">Pacific islands</button>
+      <button data-v="far" aria-pressed="false">Further afield</button>
+    </div>
+    <div class="chips" role="group" aria-label="Travel time" id="reach">
+      <button data-v="any" aria-pressed="true">Any distance</button>
+      <button data-v="3" aria-pressed="false">Under 3 h door to door</button>
+      <button data-v="8" aria-pressed="false">Under 8 h</button>
+    </div>
+    <details class="settings">
+      <summary>Surf settings: <span id="sumtxt"></span></summary>
+      <div class="grid2">
+        <div><label for="ht">Swell height</label><select id="ht"><option value="2-3">2–3 ft</option><option value="3-4" selected>3–4 ft</option><option value="4-6">4–6 ft</option></select></div>
+        <div><label for="per">Minimum period</label><select id="per"><option value="10">10 s</option><option value="11">11 s</option><option value="12" selected>12 s</option><option value="13">13 s</option><option value="14">14 s</option></select></div>
+        <div><label for="wind">Max wind</label><select id="wind"><option value="6">6 kn</option><option value="10" selected>10 kn</option><option value="15">15 kn</option></select></div>
+        <div><label for="level">Waves</label><select id="level"><option value="all">All waves</option><option value="int" selected>Easy and intermediate</option><option value="easy">Easy peelers only</option></select></div>
+        <div><label for="hand">Direction</label><select id="hand"><option value="any">Lefts and rights</option><option value="R">Right-handers</option><option value="L">Left-handers</option></select></div>
+        <div><label for="type">Break type</label><select id="type"><option value="any">Any</option><option value="point">Point breaks</option><option value="reef">Reefs</option><option value="beach">Beaches and bars</option></select></div>
+      </div>
+      <p class="fine">A great day has at least one session scoring 7 or more out of 10: swell in your size range, at or above your period, from a direction the spot picks up, with light or offshore wind. A good day scores 5 or more.</p>
+    </details>
+    <div class="legend" aria-label="Map colours">
+      <span><i class="t4"></i>6–7 great days</span><span><i class="t3"></i>4–5</span><span><i class="t2"></i>2–3</span><span><i class="t1"></i>1</span><span><i class="t0"></i>None</span>
+    </div>
+    <div class="status" id="status" aria-live="polite">Loading the forecast…</div>
+    <div id="error"></div>
+    <div id="view"></div>
+    <p class="note">Forecasts from Open-Meteo, sampled just offshore of each spot. Swell is open-ocean swell, so reefs often break bigger and points smaller. Travel times are door to door from Birkenhead, including known connections but not traffic.</p>
+  </aside>
+</div>
+<script src="leaflet.js"></script>
+<script>
+// Same CARTO basemap key as Gulf Ops. CARTO limits it to the registered domain, so it only works on gulfmore.vercel.app.
+const CARTO_KEY='cb1_4nkn_1_aab5dab6be210dbb335b1265';
+
+const DESTS = {
+  'far-north':  {name:'Far North, Ahipara', region:'nz', area:'Northland', hours:4.8, how:'about 4 h 45 drive'},
+  'tutukaka':   {name:'Tutukākā Coast', region:'nz', area:'Northland', hours:2.3, how:'about 2 h 15 drive'},
+  'bream-bay':  {name:'Waipu and Bream Bay', region:'nz', area:'Northland', hours:1.5, how:'about 1 h 30 drive'},
+  'te-arai':    {name:'Te Arai and Mangawhai', region:'nz', area:'Auckland', hours:1.3, how:'about 1 h 15 drive'},
+  'west-akl':   {name:'West Auckland', region:'nz', area:'Auckland', hours:0.9, how:'about 50 min drive'},
+  'port-waikato':{name:'Port Waikato', region:'nz', area:'Waikato', hours:1.2, how:'about 1 h 15 drive'},
+  'raglan':     {name:'Raglan', region:'nz', area:'Waikato', hours:2.5, how:'about 2 h 30 drive'},
+  'coromandel': {name:'Coromandel', region:'nz', area:'Coromandel and Bay of Plenty', hours:2.3, how:'about 2 h 15 drive'},
+  'bop':        {name:'Bay of Plenty', region:'nz', area:'Coromandel and Bay of Plenty', hours:2.8, how:'about 2 h 45 drive'},
+  'taranaki':   {name:'Taranaki', region:'nz', area:'Taranaki', hours:5, how:'about 5 h drive, or 55 min flight'},
+  'gisborne':   {name:'Gisborne', region:'nz', area:'Gisborne', hours:6.5, how:'about 6 h 30 drive, or 1 h flight'},
+  'wellington': {name:'Wellington', region:'nz', area:'Wellington', hours:2.2, how:'about 1 h flight'},
+  'kaikoura':   {name:'Kaikōura', region:'nz', area:'Kaikōura and Canterbury', hours:5, how:'about 1 h 20 flight to Christchurch plus 2 h 30 drive'},
+  'christchurch':{name:'Christchurch', region:'nz', area:'Kaikōura and Canterbury', hours:2.5, how:'about 1 h 20 flight'},
+  'dunedin':    {name:'Dunedin', region:'nz', area:'Otago', hours:3, how:'about 1 h 50 flight'},
+  'catlins':    {name:'The Catlins', region:'nz', area:'Otago', hours:4.5, how:'about 1 h 50 flight to Dunedin plus 2 h drive'},
+  'norfolk':    {name:'Norfolk Island', region:'islands', hours:3.5, how:'about 2 h direct flight'},
+  'fiji-mam':   {name:'Fiji, Mamanuca reefs', region:'islands', hours:4.5, how:'about 3 h flight to Nadi plus boat transfer'},
+  'fiji-south': {name:'Fiji, Coral Coast and Beqa', region:'islands', hours:4.5, how:'about 3 h flight to Nadi plus drive'},
+  'fiji-suva':  {name:'Fiji, Suva', region:'islands', hours:6.5, how:'flight to Nadi, then a 30 min Fiji Link connection to Nausori'},
+  'fiji-kadavu':{name:'Fiji, Kadavu', region:'islands', hours:7, how:'flight to Nadi, then a Fiji Link connection to Kadavu, which only flies some days of the week'},
+  'newcal':     {name:'New Caledonia', region:'islands', hours:4.5, how:'about 3 h flight to Nouméa plus boat or drive'},
+  'vanuatu':    {name:'Vanuatu, Efate', region:'islands', hours:4, how:'about 3 h 15 flight to Port Vila'},
+  'tonga':      {name:'Tonga, Tongatapu', region:'islands', hours:4, how:'about 3 h flight'},
+  'samoa':      {name:'Samoa, Upolu', region:'islands', hours:5, how:'about 4 h flight plus drive'},
+  'tahiti':     {name:'Tahiti', region:'islands', hours:6.5, how:'about 5 h flight to Papeete'},
+  'goldcoast':  {name:'Gold Coast', region:'far', hours:5, how:'about 3 h 45 direct flight'},
+  'sunshine':   {name:'Sunshine Coast, Noosa', region:'far', hours:5, how:'direct to Maroochydore from June to October, otherwise fly to Brisbane and drive'},
+  'bali':       {name:'Bali', region:'far', hours:10, how:'about 9 h 30 direct flight to Denpasar'},
+  'oahu':       {name:'Hawaiʻi, Oʻahu', region:'far', hours:10, how:'about 9 h direct flight to Honolulu'},
+  'socal':      {name:'Southern California', region:'far', hours:14, how:'about 12 h direct flight to Los Angeles'},
+  'chile':      {name:'Chile, Pichilemu', region:'far', hours:15, how:'about 11 h direct flight to Santiago plus 3 h drive'}
+};
+// offshore = direction the offshore wind blows FROM; win = swell directions (FROM, clockwise) the spot picks up.
+// type: point, reef, beach. hand: R right, L left, P peaks both ways. level: easy, int, adv.
+const SPOTS = [
+  {id:'wrecks',name:'Shipwreck Bay inside',dest:'far-north',lat:-35.21,lon:173.04,offshore:190,win:[200,320],type:'point',hand:'L',level:'easy'},
+  {id:'peaks',name:'Shipwreck Bay, The Peak',dest:'far-north',lat:-35.22,lon:173.03,offshore:190,win:[200,320],type:'point',hand:'L',level:'int'},
+  {id:'sandybay',name:'Sandy Bay',dest:'tutukaka',lat:-35.57,lon:174.56,offshore:270,win:[20,130],type:'beach',hand:'P',level:'int'},
+  {id:'waipu',name:'Waipu Cove',dest:'bream-bay',lat:-36.00,lon:174.53,offshore:300,win:[60,150],type:'beach',hand:'P',level:'easy'},
+  {id:'tearai',name:'Te Arai Point',dest:'te-arai',lat:-36.17,lon:174.73,offshore:250,win:[20,120],type:'beach',hand:'P',level:'int'},
+  {id:'forestry',name:'Forestry',dest:'te-arai',lat:-36.20,lon:174.77,offshore:250,win:[20,120],type:'beach',hand:'P',level:'easy'},
+  {id:'mangawhai',name:'Mangawhai Heads',dest:'te-arai',lat:-36.09,lon:174.66,offshore:260,win:[30,130],type:'beach',hand:'P',level:'int'},
+  {id:'piha',name:'Piha',dest:'west-akl',lat:-36.96,lon:174.40,offshore:80,win:[200,300],type:'beach',hand:'P',level:'int'},
+  {id:'muriwai',name:'Muriwai',dest:'west-akl',lat:-36.82,lon:174.37,offshore:90,win:[200,300],type:'beach',hand:'P',level:'int'},
+  {id:'sunset',name:'Sunset Beach',dest:'port-waikato',lat:-37.38,lon:174.68,offshore:90,win:[200,300],type:'beach',hand:'P',level:'int'},
+  {id:'manubay',name:'Manu Bay',dest:'raglan',lat:-37.84,lon:174.74,offshore:130,win:[200,270],type:'point',hand:'L',level:'int'},
+  {id:'whalebay',name:'Whale Bay',dest:'raglan',lat:-37.85,lon:174.72,offshore:130,win:[200,270],type:'point',hand:'L',level:'int'},
+  {id:'indicators',name:'Indicators',dest:'raglan',lat:-37.86,lon:174.70,offshore:130,win:[200,270],type:'point',hand:'L',level:'adv'},
+  {id:'ngarunui',name:'Ngarunui Beach',dest:'raglan',lat:-37.82,lon:174.76,offshore:90,win:[190,290],type:'beach',hand:'P',level:'easy'},
+  {id:'whangamata',name:'Whangamatā Bar',dest:'coromandel',lat:-37.21,lon:175.94,offshore:270,win:[30,130],type:'beach',hand:'L',level:'int'},
+  {id:'mount',name:'Mount Maunganui',dest:'bop',lat:-37.60,lon:176.23,offshore:200,win:[340,80],type:'beach',hand:'P',level:'easy'},
+  {id:'kumara',name:'Kumara Patch',dest:'taranaki',lat:-39.09,lon:173.85,offshore:110,win:[200,320],type:'point',hand:'R',level:'int'},
+  {id:'stent',name:'Stent Road',dest:'taranaki',lat:-39.22,lon:173.76,offshore:90,win:[190,310],type:'point',hand:'R',level:'adv'},
+  {id:'waiwhakaiho',name:'Waiwhakaiho',dest:'taranaki',lat:-39.03,lon:174.10,offshore:160,win:[260,20],type:'reef',hand:'P',level:'int'},
+  {id:'fitzroy',name:'Fitzroy Beach',dest:'taranaki',lat:-39.04,lon:174.08,offshore:180,win:[270,30],type:'beach',hand:'P',level:'easy'},
+  {id:'makorori',name:'Makorori Point',dest:'gisborne',lat:-38.65,lon:178.15,offshore:320,win:[80,190],type:'point',hand:'R',level:'int'},
+  {id:'wainui',name:'Wainui Beach',dest:'gisborne',lat:-38.69,lon:178.14,offshore:280,win:[60,180],type:'beach',hand:'P',level:'int'},
+  {id:'lyall',name:'Lyall Bay',dest:'wellington',lat:-41.35,lon:174.80,offshore:0,win:[130,220],type:'beach',hand:'P',level:'easy'},
+  {id:'mangamaunu',name:'Mangamaunu',dest:'kaikoura',lat:-42.31,lon:173.79,offshore:280,win:[100,200],type:'point',hand:'R',level:'int'},
+  {id:'meatworks',name:'Meatworks',dest:'kaikoura',lat:-42.36,lon:173.73,offshore:300,win:[90,200],type:'reef',hand:'P',level:'adv'},
+  {id:'taylors',name:'Taylors Mistake',dest:'christchurch',lat:-43.59,lon:172.79,offshore:270,win:[40,170],type:'beach',hand:'P',level:'easy'},
+  {id:'karitane',name:'Karitane',dest:'dunedin',lat:-45.64,lon:170.69,offshore:260,win:[60,180],type:'point',hand:'R',level:'int'},
+  {id:'spit',name:'The Spit, Aramoana',dest:'dunedin',lat:-45.77,lon:170.73,offshore:220,win:[20,140],type:'beach',hand:'P',level:'int'},
+  {id:'stclair',name:'St Clair',dest:'dunedin',lat:-45.93,lon:170.50,offshore:0,win:[110,220],type:'beach',hand:'P',level:'easy'},
+  {id:'papatowai',name:'Papatowai',dest:'catlins',lat:-46.57,lon:169.50,offshore:320,win:[90,210],type:'point',hand:'P',level:'int'},
+  {id:'kingston',name:'Kingston reef',dest:'norfolk',lat:-29.08,lon:167.96,offshore:0,win:[130,230],type:'reef',hand:'P',level:'int'},
+  {id:'anson',name:'Anson Bay',dest:'norfolk',lat:-29.01,lon:167.89,offshore:45,win:[200,290],type:'beach',hand:'P',level:'int'},
+  {id:'cloudbreak',name:'Cloudbreak',dest:'fiji-mam',lat:-17.89,lon:177.18,offshore:120,win:[170,260],type:'reef',hand:'L',level:'adv'},
+  {id:'restaurants',name:'Restaurants',dest:'fiji-mam',lat:-17.87,lon:177.21,offshore:120,win:[180,260],type:'reef',hand:'L',level:'adv'},
+  {id:'tavrights',name:'Tavarua Rights',dest:'fiji-mam',lat:-17.86,lon:177.20,offshore:300,win:[180,260],type:'reef',hand:'R',level:'int'},
+  {id:'namotu',name:'Namotu Left',dest:'fiji-mam',lat:-17.85,lon:177.18,offshore:110,win:[170,250],type:'reef',hand:'L',level:'int'},
+  {id:'pools',name:'Swimming Pools',dest:'fiji-mam',lat:-17.84,lon:177.19,offshore:120,win:[180,250],type:'reef',hand:'R',level:'int'},
+  {id:'wilkes',name:'Wilkes Passage',dest:'fiji-mam',lat:-17.83,lon:177.15,offshore:120,win:[180,260],type:'reef',hand:'R',level:'int'},
+  {id:'desperations',name:'Desperations',dest:'fiji-mam',lat:-17.82,lon:177.15,offshore:120,win:[180,260],type:'reef',hand:'P',level:'int'},
+  {id:'frigate',name:'Frigate Passage',dest:'fiji-south',lat:-18.46,lon:178.04,offshore:20,win:[150,240],type:'reef',hand:'L',level:'adv'},
+  {id:'serua',name:'Serua Rights',dest:'fiji-south',lat:-18.37,lon:177.90,offshore:340,win:[150,240],type:'reef',hand:'R',level:'int'},
+  {id:'hideaway',name:'Hideaway',dest:'fiji-south',lat:-18.23,lon:177.73,offshore:0,win:[150,240],type:'reef',hand:'R',level:'int'},
+  {id:'natadola',name:'Natadola Inside Left',dest:'fiji-south',lat:-18.14,lon:177.31,offshore:20,win:[180,250],type:'reef',hand:'L',level:'int'},
+  {id:'sigatoka',name:'Sigatoka',dest:'fiji-south',lat:-18.19,lon:177.50,offshore:0,win:[150,240],type:'beach',hand:'P',level:'int'},
+  {id:'suvalight',name:'Suva Lighthouse',dest:'fiji-suva',lat:-18.18,lon:178.40,offshore:0,win:[140,220],type:'reef',hand:'R',level:'int'},
+  {id:'kingkong',name:'King Kong Lefts',dest:'fiji-kadavu',lat:-19.13,lon:178.20,offshore:0,win:[150,240],type:'reef',hand:'L',level:'adv'},
+  {id:'dumbea',name:'Dumbéa Pass',dest:'newcal',lat:-22.38,lon:166.23,offshore:110,win:[170,260],type:'reef',hand:'P',level:'int'},
+  {id:'tenia',name:'Ténia',dest:'newcal',lat:-21.95,lon:165.86,offshore:90,win:[190,280],type:'reef',hand:'P',level:'int'},
+  {id:'bourail',name:'Bourail',dest:'newcal',lat:-21.64,lon:165.44,offshore:60,win:[180,270],type:'beach',hand:'P',level:'easy'},
+  {id:'pango',name:'Pango Point',dest:'vanuatu',lat:-17.79,lon:168.29,offshore:20,win:[160,250],type:'reef',hand:'P',level:'int'},
+  {id:'haatafu',name:'Haʻatafu',dest:'tonga',lat:-21.07,lon:-175.39,offshore:100,win:[190,300],type:'reef',hand:'P',level:'int'},
+  {id:'salani',name:'Salani Right',dest:'samoa',lat:-14.10,lon:-171.60,offshore:10,win:[150,230],type:'reef',hand:'R',level:'int'},
+  {id:'teahupoo',name:'Teahupoʻo',dest:'tahiti',lat:-17.88,lon:-149.27,offshore:60,win:[180,260],type:'reef',hand:'L',level:'adv'},
+  {id:'papara',name:'Papara',dest:'tahiti',lat:-17.78,lon:-149.53,offshore:40,win:[170,250],type:'beach',hand:'P',level:'easy'},
+  {id:'taapuna',name:'Taapuna',dest:'tahiti',lat:-17.60,lon:-149.64,offshore:90,win:[200,300],type:'reef',hand:'L',level:'int'},
+  {id:'rainbow',name:'Rainbow Bay and Greenmount',dest:'goldcoast',lat:-28.15,lon:153.58,offshore:200,win:[60,170],type:'point',hand:'R',level:'easy'},
+  {id:'currumbin',name:'Currumbin Alley',dest:'goldcoast',lat:-28.12,lon:153.52,offshore:200,win:[60,170],type:'point',hand:'R',level:'easy'},
+  {id:'burleigh',name:'Burleigh Heads',dest:'goldcoast',lat:-28.08,lon:153.48,offshore:200,win:[60,170],type:'point',hand:'R',level:'adv'},
+  {id:'noosafirst',name:'Noosa First Point',dest:'sunshine',lat:-26.37,lon:153.11,offshore:160,win:[60,160],type:'point',hand:'R',level:'easy'},
+  {id:'teatree',name:'Tea Tree Bay',dest:'sunshine',lat:-26.37,lon:153.12,offshore:160,win:[60,160],type:'point',hand:'R',level:'int'},
+  {id:'canggu',name:'Canggu, Batu Bolong',dest:'bali',lat:-8.67,lon:115.11,offshore:45,win:[180,260],type:'reef',hand:'P',level:'easy'},
+  {id:'medewi',name:'Medewi',dest:'bali',lat:-8.43,lon:114.81,offshore:40,win:[180,260],type:'point',hand:'L',level:'int'},
+  {id:'keramas',name:'Keramas',dest:'bali',lat:-8.61,lon:115.37,offshore:315,win:[130,220],type:'reef',hand:'R',level:'adv'},
+  {id:'uluwatu',name:'Uluwatu',dest:'bali',lat:-8.82,lon:115.07,offshore:120,win:[180,250],type:'reef',hand:'L',level:'adv'},
+  {id:'waikiki',name:'Waikīkī, Queens and Canoes',dest:'oahu',lat:21.26,lon:-157.83,offshore:30,win:[150,230],type:'reef',hand:'R',level:'easy'},
+  {id:'chuns',name:'Chun’s Reef',dest:'oahu',lat:21.63,lon:-158.10,offshore:120,win:[280,30],type:'reef',hand:'R',level:'int'},
+  {id:'malibu',name:'Malibu First Point',dest:'socal',lat:34.02,lon:-118.68,offshore:10,win:[170,250],type:'point',hand:'R',level:'easy'},
+  {id:'sanonofre',name:'San Onofre, Old Man’s',dest:'socal',lat:33.36,lon:-117.58,offshore:45,win:[180,290],type:'reef',hand:'P',level:'easy'},
+  {id:'trestles',name:'Lower Trestles',dest:'socal',lat:33.37,lon:-117.60,offshore:45,win:[170,270],type:'reef',hand:'P',level:'adv'},
+  {id:'puntilla',name:'La Puntilla',dest:'chile',lat:-34.38,lon:-72.03,offshore:180,win:[190,290],type:'point',hand:'L',level:'easy'},
+  {id:'lobos',name:'Punta de Lobos',dest:'chile',lat:-34.42,lon:-72.07,offshore:150,win:[190,290],type:'point',hand:'L',level:'adv'}
+];
+// Surfline links, each checked to exist. kind 'spot' is the spot's own page; 'map' is the nearest regional map page.
+const SL = 'https://www.surfline.com/';
+const SL_MAPS = {
+  northland: {label:'Northland map', url:SL+'surf-reports-forecasts-cams/new-zealand/northland/2185978'},
+  north: {label:'North Island map', url:SL+'surf-reports-forecasts-cams/new-zealand/north-island/2185983'},
+  raglan: {label:'Raglan map', url:SL+'surf-reports-forecasts-cams/new-zealand/waikato/raglan/2183854'},
+  taranaki: {label:'Taranaki map', url:SL+'surf-reports-forecasts-cams/new-zealand/taranaki/2181872'},
+  gisborne: {label:'Gisborne map', url:SL+'surf-reports-forecasts-cams/new-zealand/north-island/gisborne/2190767'},
+  canterbury: {label:'Canterbury map', url:SL+'surf-reports-forecasts-cams/new-zealand/south-island/canterbury/2192628'},
+  south: {label:'South Island map', url:SL+'surf-reports-forecasts-cams/new-zealand/south-island/2182504'}
+};
+const SURFLINE = {
+  wrecks:{kind:'spot',label:'Shipwreck Bay',url:SL+'surf-report/shipwreck-bay/5842041f4e65fad6a7708d80'},
+  peaks:{kind:'spot',label:'Shipwreck Bay',url:SL+'surf-report/shipwreck-bay/5842041f4e65fad6a7708d80'},
+  tearai:{kind:'spot',label:'Te Arai',url:SL+'surf-report/te-arai-point/584204204e65fad6a770966f'},
+  forestry:{kind:'spot',label:'Forestry',url:SL+'surf-report/forestry/604fa0c633c33cfd96f3bbcd'},
+  mangawhai:{kind:'spot',label:'Mangawhai Heads',url:SL+'surf-report/mangawhai-heads/584204204e65fad6a770966b'},
+  piha:{kind:'spot',label:'Piha',url:SL+'surf-report/piha/5842041f4e65fad6a7708d7c'},
+  manubay:{kind:'spot',label:'Raglan Manu Bay',url:SL+'surf-report/raglan-manu-bay/616899fddc9629291807fafc'},
+  whalebay:{kind:'spot',label:'Whale Bay',url:SL+'surf-report/whale-bay/618d93ef86b1ae065dfd008e'},
+  whangamata:{kind:'spot',label:'Whangamata',url:SL+'surf-report/whangamata/584204204e65fad6a770966e'},
+  stent:{kind:'spot',label:'Stent Road',url:SL+'surf-report/stent-road/5842041f4e65fad6a7708d8f'},
+  makorori:{kind:'spot',label:'Makorori Point',url:SL+'surf-report/makorori-point/6179afa384de33ec025e58f4'},
+  mangamaunu:{kind:'spot',label:'Mangamaunu',url:SL+'surf-report/mangamaunu/5842041f4e65fad6a7708d88'},
+  sandybay:{kind:'map',...SL_MAPS.northland}, waipu:{kind:'map',...SL_MAPS.northland},
+  muriwai:{kind:'map',...SL_MAPS.north}, sunset:{kind:'map',...SL_MAPS.north}, mount:{kind:'map',...SL_MAPS.north}, lyall:{kind:'map',...SL_MAPS.north},
+  indicators:{kind:'map',...SL_MAPS.raglan}, ngarunui:{kind:'map',...SL_MAPS.raglan},
+  kumara:{kind:'map',...SL_MAPS.taranaki}, waiwhakaiho:{kind:'map',...SL_MAPS.taranaki}, fitzroy:{kind:'map',...SL_MAPS.taranaki},
+  wainui:{kind:'map',...SL_MAPS.gisborne},
+  meatworks:{kind:'map',...SL_MAPS.canterbury}, taylors:{kind:'map',...SL_MAPS.canterbury},
+  karitane:{kind:'map',...SL_MAPS.south}, spit:{kind:'map',...SL_MAPS.south}, stclair:{kind:'map',...SL_MAPS.south}, papatowai:{kind:'map',...SL_MAPS.south}
+};
+// Door-to-door travel from Birkenhead, in minutes per leg. Off-peak estimates: add time for traffic, connections and delays.
+const DRIVE = m => [['drive',m]];
+// Air NZ's direct Auckland–Sunshine Coast flights are seasonal (5 June to 30 October in 2026); outside that, fly to Brisbane and drive.
+const SUNCOAST_DIRECT = date => { const md = date.slice(5); return md >= '06-05' && md <= '10-30'; };
+const DOM = (flight, to, onward, label) => [['drive to Auckland Airport',40],['domestic check-in',60],['flight to '+to,flight],['bags and rental car',30],[label,onward]];
+const INTL = (flight, to, onward, label, arr=45) => [['drive to Auckland Airport',40],['international check-in',120],['flight to '+to,flight],['customs and bags',arr],[label,onward]];
+const DOOR = {
+  wrecks:DRIVE(285), peaks:DRIVE(290), sandybay:DRIVE(150), waipu:DRIVE(90),
+  tearai:DRIVE(70), forestry:DRIVE(75), mangawhai:DRIVE(75), piha:DRIVE(55), muriwai:DRIVE(45), sunset:DRIVE(80),
+  manubay:DRIVE(145), whalebay:DRIVE(150), indicators:DRIVE(155), ngarunui:DRIVE(140),
+  whangamata:DRIVE(130), mount:DRIVE(160),
+  kumara:DRIVE(290), stent:DRIVE(310), waiwhakaiho:DRIVE(270), fitzroy:DRIVE(270),
+  makorori:DRIVE(400), wainui:DRIVE(390),
+  lyall:DOM(65,'Wellington',15,'drive to the beach'),
+  mangamaunu:DOM(85,'Christchurch',135,'drive to Kaikōura'), meatworks:DOM(85,'Christchurch',140,'drive to Kaikōura'),
+  taylors:DOM(85,'Christchurch',30,'drive to the beach'),
+  karitane:DOM(110,'Dunedin',55,'drive to the break'), spit:DOM(110,'Dunedin',50,'drive to Aramoana'), stclair:DOM(110,'Dunedin',30,'drive to the beach'),
+  papatowai:DOM(110,'Dunedin',120,'drive to the Catlins'),
+  kingston:INTL(125,'Norfolk Island',15,'drive to Kingston'), anson:INTL(125,'Norfolk Island',20,'drive and walk in'),
+  cloudbreak:INTL(195,'Nadi',75,'transfer and boat'), restaurants:INTL(195,'Nadi',75,'transfer and boat'), tavrights:INTL(195,'Nadi',75,'transfer and boat'),
+  namotu:INTL(195,'Nadi',70,'transfer and boat'), pools:INTL(195,'Nadi',70,'transfer and boat'), wilkes:INTL(195,'Nadi',70,'transfer and boat'), desperations:INTL(195,'Nadi',70,'transfer and boat'),
+  frigate:INTL(195,'Nadi',160,'drive to Pacific Harbour and boat'), serua:INTL(195,'Nadi',150,'drive and boat'),
+  hideaway:INTL(195,'Nadi',90,'drive to the Coral Coast'), natadola:INTL(195,'Nadi',60,'drive to Natadola'), sigatoka:INTL(195,'Nadi',60,'drive to Sigatoka'),
+  suvalight:[...INTL(195,'Nadi',120,'layover at Nadi for the domestic connection'),['flight to Nausori (Suva)',30],['bags',15],['drive to Suva and boat to the reef',55]],
+  kingkong:[...INTL(195,'Nadi',180,'layover at Nadi for the Kadavu flight'),['flight to Kadavu',50],['bags',15],['boat to the reef',60]],
+  dumbea:INTL(165,'Nouméa',90,'drive and boat'), tenia:INTL(165,'Nouméa',80,'drive and boat'), bourail:INTL(165,'Nouméa',90,'drive to Bourail'),
+  pango:INTL(180,'Port Vila',20,'drive to Pango'),
+  haatafu:INTL(175,'Nukuʻalofa',40,'drive to Haʻatafu'),
+  salani:INTL(230,'Apia',80,'drive to Salani'),
+  teahupoo:INTL(300,'Papeete',90,'drive and boat'), papara:INTL(300,'Papeete',30,'drive to Papara'), taapuna:INTL(300,'Papeete',10,'drive to Taapuna'),
+  rainbow:INTL(225,'Gold Coast',10,'drive to the point'), currumbin:INTL(225,'Gold Coast',10,'drive to Currumbin'), burleigh:INTL(225,'Gold Coast',20,'drive to Burleigh'),
+  noosafirst:d => SUNCOAST_DIRECT(d) ? INTL(225,'Sunshine Coast',35,'drive to Noosa') : INTL(180,'Brisbane',105,'drive to Noosa'),
+  teatree:d => SUNCOAST_DIRECT(d) ? INTL(225,'Sunshine Coast',40,'drive and walk to Tea Tree') : INTL(180,'Brisbane',110,'drive and walk to Tea Tree'),
+  canggu:INTL(570,'Denpasar',60,'drive to Canggu',60), medewi:INTL(570,'Denpasar',180,'drive to Medewi',60), keramas:INTL(570,'Denpasar',60,'drive to Keramas',60), uluwatu:INTL(570,'Denpasar',50,'drive to Uluwatu',60),
+  waikiki:INTL(525,'Honolulu',30,'drive to Waikīkī',60), chuns:INTL(525,'Honolulu',60,'drive to the North Shore',60),
+  malibu:INTL(720,'Los Angeles',50,'drive to Malibu',75), sanonofre:INTL(720,'Los Angeles',105,'drive to San Onofre',75), trestles:INTL(720,'Los Angeles',105,'drive and walk to Trestles',75),
+  puntilla:INTL(660,'Santiago',180,'drive to Pichilemu',60), lobos:INTL(660,'Santiago',190,'drive to Punta de Lobos',60)
+};
+const legsFor = (id, date) => { const v = DOOR[id]; if(!v) return null; return typeof v==='function' ? v(date || DAYS[0] || nzToday()) : v; };
+const doorMin = (id, date) => (legsFor(id,date)||[]).reduce((a,[,m])=>a+m,0);
+const fmtMin = m => { const h = Math.floor(m/60), r = Math.round(m%60); return h ? (r ? `${h} h ${String(r).padStart(2,'0')}` : `${h} h`) : `${r} min`; };
+const doorShort = (id, date) => DOOR[id] ? `${fmtMin(doorMin(id,date))} door to door` : '';
+const doorLong = (id, date) => { const L = legsFor(id,date); if(!L) return '';
+  return L.length===1 ? `About ${fmtMin(doorMin(id,date))} door to door from Birkenhead by car.`
+    : `About ${fmtMin(doorMin(id,date))} door to door from Birkenhead: ${L.map(([l,m])=>`${fmtMin(m)} ${l}`).join(', ')}.`; };
+// Destination travel time on a given date = the quickest spot in it.
+const destHours = (did, date) => { const ms = SPOTS.filter(s=>s.dest===did && DOOR[s.id]).map(s=>doorMin(s.id,date)); return ms.length ? Math.min(...ms)/60 : DESTS[did].hours; };
+const HAND = {R:'Right', L:'Left', P:'Peaks'}, LEVEL = {easy:'easy', int:'intermediate', adv:'heavy or expert'}, TYPE = {point:'point', reef:'reef', beach:'beach'};
+
+
+const HORIZON = 7;
+const S = {region:'all', reach:'any', level:'int', hand:'any', type:'any', lo:3, hi:4, minP:12, maxKn:10, dest:''};
+let RAW = {}, DAYS = [], CELLS = {}, SUMS = [], selDay = null, selHour = null;
+
+const $ = id => document.getElementById(id);
+const clamp = x => Math.max(0, Math.min(1, x));
+const ang = (a,b) => { const d = Math.abs((((a-b)%360)+360)%360); return d>180 ? 360-d : d; };
+const inWin = (d,[a,b]) => a<=b ? (d>=a && d<=b) : (d>=a || d<=b);
+const winDist = (d,w) => inWin(d,w) ? 0 : Math.min(ang(d,w[0]), ang(d,w[1]));
+const PTS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const compass = d => PTS[Math.round((((d%360)+360)%360)/22.5)%16];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function nzToday(){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland'}).format(new Date()); }
+const addDays = (ds,n) => { const d = new Date(ds+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); };
+const dayShort = ds => new Date(ds+'T12:00:00Z').toLocaleDateString('en-NZ',{weekday:'short',timeZone:'UTC'});
+const dayLong = ds => new Date(ds+'T12:00:00Z').toLocaleDateString('en-NZ',{weekday:'long',day:'numeric',month:'short',timeZone:'UTC'});
+const hourLabel = h => h===0?'12 am':h<12?h+' am':h===12?'12 pm':(h-12)+' pm';
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const grade = sc => sc==null ? 'g-poor' : sc>=7 ? 'g-great' : sc>=5 ? 'g-good' : sc>=3 ? 'g-ok' : 'g-poor';
+const tier = n => n>=6?4 : n>=4?3 : n>=2?2 : n>=1?1 : 0;
+const tierWord = n => n>=6?'Firing all week' : n>=4?'Strike' : n>=2?'Worth a look' : n>=1?'One window' : 'Nothing great';
+const mapLon = lon => lon < -30 ? lon+360 : lon;
+const spotOK = s => (S.region==='all' || DESTS[s.dest].region===S.region)
+  && (S.type==='any' || s.type===S.type)
+  && (S.level==='all' || (S.level==='int' ? s.level!=='adv' : s.level==='easy'))
+  && (S.hand==='any' || s.hand===S.hand || s.hand==='P');
+const waveDesc = s => `${s.hand==='P'?'Peaks breaking both ways off a '+TYPE[s.type]:HAND[s.hand]+'-hand '+TYPE[s.type]}, ${LEVEL[s.level]}`;
+function wetsuit(t){
+  if(t==null) return '';
+  const w = t>=24?'boardshorts or a rash vest':t>=21?'a springsuit or 2 mm top':t>=18?'a 3/2 steamer':t>=14?'a 4/3 steamer':'a 5/4 with boots and hood';
+  return `Water about ${Math.round(t)}°C, so ${w}.`;
+}
+
+// Settings live in the link so a view can be bookmarked or shared.
+const HASH_KEYS = ['region','reach','level','hand','type','lo','hi','minP','maxKn','dest'];
+function readHash(){ const p = new URLSearchParams(location.hash.slice(1)); HASH_KEYS.forEach(k=>{ if(p.has(k)){ const v = p.get(k); S[k] = (v!=='' && !isNaN(+v)) ? +v : v; } }); if(S.dest && !DESTS[S.dest]) S.dest=''; }
+function writeHash(){ const p = new URLSearchParams(); HASH_KEYS.forEach(k=>{ if(S[k]!=='' ) p.set(k,S[k]); }); try{ history.replaceState(null,'','#'+p.toString()); }catch(e){} }
+function syncControls(){
+  ['region','reach'].forEach(g=>$(g).querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(String(S[g])===b.dataset.v))));
+  $('ht').value=`${S.lo}-${S.hi}`; $('per').value=S.minP; $('wind').value=S.maxKn; $('level').value=S.level; $('hand').value=S.hand; $('type').value=S.type;
+  $('sumtxt').textContent = `${S.lo}–${S.hi} ft, ${S.minP} s+, under ${S.maxKn} kn`;
+}
+
+// Open-Meteo's free tier counts every location in a request as a call (limits: 600 a minute, 5,000 an hour, 10,000 a day).
+// To stay well inside them: spots sharing a forecast grid point are fetched once, swell, tide and water temperature
+// come in one request, and the forecast is saved in this browser for an hour so reloads don't call the API.
+const CACHE_KEY = 'swellops-forecast-v2', CACHE_MS = 60*60*1000;
+function forecastPoints(){
+  const groups = new Map();
+  SPOTS.forEach(s=>{ const k = `${Math.round(s.lat*10)/10},${Math.round(s.lon*10)/10}`;
+    if(!groups.has(k)) groups.set(k,{lat:s.lat, lon:s.lon, ids:[]}); groups.get(k).ids.push(s.id); });
+  return [...groups.values()];
+}
+async function getJSON(url){
+  const r = await fetch(url);
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!r.ok || (j && j.error)){ const e = new Error(j?.reason || `the forecast service returned an error (${r.status})`); e.limited = r.status===429 || /limit/i.test(j?.reason||''); throw e; }
+  return j;
+}
+function readCache(){ try{ const c = JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); return c && c.v===SPOTS.length ? c : null; }catch(e){ return null; } }
+function writeCache(c){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }catch(e){} }
+
+async function load(force){
+  $('status').textContent = 'Loading the forecast…'; $('error').innerHTML = '';
+  const pts = forecastPoints();
+  let data = readCache(), note = '';
+  if(force || !data || Date.now()-data.t > CACHE_MS){
+    const base = `latitude=${pts.map(p=>p.lat).join(',')}&longitude=${pts.map(p=>p.lon).join(',')}&timezone=auto&forecast_days=8`;
+    try{
+      let [m, w] = await Promise.all([
+        getJSON(`https://marine-api.open-meteo.com/v1/marine?${base}&hourly=swell_wave_height,swell_wave_period,swell_wave_direction,sea_level_height_msl,sea_surface_temperature`),
+        getJSON(`https://api.open-meteo.com/v1/forecast?${base}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn`)
+      ]);
+      if(!Array.isArray(m)) m=[m]; if(!Array.isArray(w)) w=[w];
+      data = {t:Date.now(), v:SPOTS.length, m, w};
+      writeCache(data);
+    }catch(e){
+      if(data){ note = ` Showing the saved forecast because Open-Meteo didn’t respond (${e.message}).`; }
+      else{
+        $('status').textContent = '';
+        $('error').innerHTML = `<div class="err">${e.limited
+          ? `Open-Meteo’s free usage limit has been reached for now (${esc(e.message)}). This usually comes from refreshing many times in a short period. The minute limit clears within a minute and the hourly one within the hour; after that, the forecast is saved in this browser so reloads won’t count.`
+          : `Couldn’t load the forecast from Open-Meteo: ${esc(e.message)}. Check your connection and reload the page.`}</div>`;
+        return;
+      }
+    }
+  }
+  RAW = {};
+  pts.forEach((p,i)=>{
+    const mh = data.m[i]?.hourly, wh = data.w[i]?.hourly;
+    let rows = [];
+    if(mh && wh){
+      const wind = {};
+      wh.time.forEach((t,j)=> wind[t] = {kn:wh.wind_speed_10m[j], wd:wh.wind_direction_10m[j], gust:wh.wind_gusts_10m[j]});
+      rows = mh.time.map((t,j)=>({t, date:t.slice(0,10), hour:+t.slice(11,13),
+        m:mh.swell_wave_height[j], p:mh.swell_wave_period[j], sd:mh.swell_wave_direction[j],
+        tide:mh.sea_level_height_msl?.[j] ?? null, sst:mh.sea_surface_temperature?.[j] ?? null,
+        ...(wind[t]||{kn:null,wd:null,gust:null})}));
+      rows.forEach((h,j,a)=>{ const n=a[j+1]; h.trend = (h.tide!=null && n && n.tide!=null) ? (n.tide>h.tide?'rising':'falling') : null; });
+    }
+    p.ids.forEach(id=> RAW[id] = rows);
+  });
+  const today = nzToday();
+  DAYS = Array.from({length:HORIZON},(_,i)=>addDays(today,i));
+  const mins = Math.round((Date.now()-data.t)/60000);
+  $('status').innerHTML = `Forecast ${mins<1?'just updated':`from ${mins} min ago`}.${esc(note)} <button class="back" id="refresh" style="margin:0 0 0 6px;font-size:13px">Refresh</button>`;
+  $('refresh').addEventListener('click',()=>load(true));
+  render();
+}
+
+function scoreHour(h, spot){
+  if(h.m==null || h.p==null || h.sd==null || h.kn==null || h.wd==null) return null;
+  const ft = h.m*3.281;
+  const hs = ft>=S.lo && ft<=S.hi ? 1 : ft<S.lo ? clamp((ft-(S.lo-1.5))/1.5) : clamp(1-(ft-S.hi)/2.5);
+  const ps = h.p>=S.minP+2 ? 1 : h.p>=S.minP ? .8+.1*(h.p-S.minP) : clamp(.8-(S.minP-h.p)*.25);
+  const dd = winDist(h.sd, spot.win);
+  const ds = dd===0 ? 1 : dd<=25 ? .6 : dd<=50 ? .25 : .05;
+  const wa = ang(h.wd, spot.offshore);
+  const dirF = wa<=45 ? 1 : wa<=80 ? .75 : wa<=110 ? .4 : .15;
+  const limit = S.maxKn + (wa<=45 ? 5 : 0);
+  const spF = h.kn<=limit ? 1 : clamp(1-(h.kn-limit)/12);
+  const ws = h.kn<=5 ? 1 : dirF*spF;
+  const rel = h.kn<=5 ? 'glassy' : wa<=45 ? 'offshore' : wa<=80 ? 'cross-offshore' : wa<=110 ? 'cross-shore' : 'onshore';
+  return {...h, ft, score:10*hs*ps*ds*ws, rel, inWindow:dd===0};
+}
+
+// Best daylight session (6 am–6 pm) per spot per day.
+function buildCells(){
+  CELLS = {};
+  SPOTS.forEach(s=>{
+    CELLS[s.id] = {};
+    DAYS.forEach(d=>{
+      const hrs = (RAW[s.id]||[]).filter(h=>h.date===d && h.hour>=6 && h.hour<=18).map(h=>scoreHour(h,s)).filter(Boolean);
+      CELLS[s.id][d] = {hours:hrs, best:hrs.reduce((a,b)=>!a||b.score>a.score?b:a, null)};
+    });
+  });
+}
+
+function spotGreat(id){ return DAYS.filter(d=>(CELLS[id][d].best?.score ?? 0)>=7).length; }
+
+function summarise(){
+  SUMS = [];
+  Object.entries(DESTS).forEach(([did,dest])=>{
+    const spots = SPOTS.filter(s=>s.dest===did && spotOK(s));
+    if(!spots.length) return;
+    const hrs = destHours(did, DAYS[0]);
+    if(S.reach!=='any' && hrs > +S.reach) return;
+    const days = DAYS.map(d=>{
+      let top = null;
+      spots.forEach(s=>{ const b = CELLS[s.id][d].best; if(b && (!top || b.score>top.b.score)) top = {s,b}; });
+      return {d, top};
+    });
+    const great = days.filter(x=>x.top && x.top.b.score>=7).length;
+    const good = days.filter(x=>x.top && x.top.b.score>=5).length;
+    const peak = Math.max(0,...days.map(x=>x.top?x.top.b.score:0));
+    // Longest run of consecutive great days, for the strike window.
+    let run = null, cur = null;
+    days.forEach((x,i)=>{ if(x.top && x.top.b.score>=7){ cur = cur ? {...cur, end:i} : {start:i,end:i}; if(!run || cur.end-cur.start > run.end-run.start) run = {...cur}; } else cur = null; });
+    const lat = spots.reduce((a,s)=>a+s.lat,0)/spots.length, lon = spots.reduce((a,s)=>a+mapLon(s.lon),0)/spots.length;
+    SUMS.push({did, dest, spots, days, great, good, peak, run, hrs, lat, lon});
+  });
+  SUMS.sort((a,b)=> b.great-a.great || b.good-a.good || a.hrs-b.hrs || b.peak-a.peak);
+}
+
+const fmtH = h => fmtMin(Math.round(h*60));
+const greatDays = s => s.days.filter(x=>x.top && x.top.b.score>=7).map(x=>dayShort(x.d));
+function listLine(s){
+  if(!s.great) return s.good ? `No great days, ${s.good} good. ${fmtH(s.hrs)} door to door.` : `Nothing worth the trip this week. ${fmtH(s.hrs)} door to door.`;
+  return `${s.great} great day${s.great>1?'s':''}: ${greatDays(s).join(', ')}. ${fmtH(s.hrs)} door to door.`;
+}
+
+// ---------- Map ----------
+let map, destLayer, spotLayer;
+function initMap(){
+  if(typeof L === 'undefined'){ $('map').innerHTML = '<p class="empty" style="padding:20px">The map couldn’t load. The strike list still works.</p>'; return; }
+  map = L.map('map', {zoomControl:true, worldCopyJump:false, minZoom:2}).setView([-18, 178], 3);
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  L.tileLayer(`https://basemaps.cartocdn.com/rastertiles/${dark?'dark_all':'voyager'}/{z}/{x}/{y}.png?key=${CARTO_KEY}`, {
+    maxZoom: 18,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(map);
+  destLayer = L.layerGroup().addTo(map);
+  spotLayer = L.layerGroup().addTo(map);
+}
+function drawMap(){
+  if(!map) return;
+  destLayer.clearLayers(); spotLayer.clearLayers();
+  SUMS.forEach(s=>{
+    const t = tier(s.great);
+    const icon = L.divIcon({className:'', html:`<div class="pin t${t}${S.dest===s.did?' sel':''}">${s.great}</div>`, iconSize:[34,34], iconAnchor:[17,17]});
+    const mk = L.marker([s.lat, s.lon], {icon, zIndexOffset: s.great*100 + (S.dest===s.did?1000:0), keyboard:true, title:`${s.dest.name}: ${s.great} great days`, alt:`${s.dest.name}, ${s.great} great days`});
+    mk.bindTooltip(`<b>${esc(s.dest.name)}</b><br>${esc(listLine(s))}`, {direction:'top', offset:[0,-16]});
+    mk.on('click', ()=>select(s.did));
+    destLayer.addLayer(mk);
+  });
+  const sel = SUMS.find(s=>s.did===S.dest);
+  if(sel) sel.spots.forEach(sp=>{
+    const g = spotGreat(sp.id);
+    const icon = L.divIcon({className:'', html:`<div class="spin t${tier(g)}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
+    spotLayer.addLayer(L.marker([sp.lat, mapLon(sp.lon)], {icon, keyboard:false}).bindTooltip(`${esc(sp.name)}: ${g} great day${g===1?'':'s'}`, {direction:'top'}));
+  });
+}
+
+// ---------- Panel ----------
+function render(){
+  if(!DAYS.length) return;
+  writeHash(); syncControls();
+  buildCells(); summarise(); drawMap();
+  S.dest && SUMS.find(s=>s.did===S.dest) ? renderDetail() : renderList();
+}
+
+function renderList(){
+  if(!SUMS.length){ $('view').innerHTML = '<p class="empty" style="margin-top:16px">Nothing matches. Try another region, a longer travel time, or broader surf settings.</p>'; return; }
+  const top = SUMS[0];
+  const lead = top.great ? `Best strike this week: ${top.dest.name}.` : 'No great days anywhere for these settings. Try a different swell size or period.';
+  $('view').innerHTML = `<p class="best">${esc(lead)}</p>
+    <ol class="list">${SUMS.map(s=>`
+      <li><button class="item" data-d="${s.did}">
+        <span class="badge t${tier(s.great)}" aria-hidden="true">${s.great}</span>
+        <span><span class="nm">${esc(s.dest.name)}</span><span class="sub">${esc(listLine(s))}</span>
+          <span class="strip" aria-hidden="true">${s.days.map(x=>`<i class="${grade(x.top?.b.score)}"></i>`).join('')}</span></span>
+      </button></li>`).join('')}</ol>`;
+  $('view').querySelectorAll('.item').forEach(b=>b.addEventListener('click',()=>select(b.dataset.d)));
+}
+
+function select(did){
+  S.dest = did; selDay = null; selHour = null;
+  writeHash(); drawMap(); renderDetail();
+  const s = SUMS.find(x=>x.did===did);
+  if(map && s){ const z = Math.max(map.getZoom(), s.spots.length>1 ? 9 : 10); reduced() ? map.setView([s.lat,s.lon], z) : map.flyTo([s.lat,s.lon], z, {duration:.8}); }
+  $('panel').scrollTop = 0;
+}
+function deselect(){
+  S.dest = ''; selDay = null; selHour = null; writeHash(); drawMap(); renderList();
+  if(map){ const b = L.latLngBounds(SUMS.map(s=>[s.lat,s.lon])); if(b.isValid()) map.fitBounds(b, {padding:[30,30], maxZoom:5}); }
+}
+
+function renderDetail(){
+  const s = SUMS.find(x=>x.did===S.dest); if(!s){ renderList(); return; }
+  const temp = (()=>{ const v = s.spots.flatMap(sp=>(RAW[sp.id]||[]).slice(0,48).map(h=>h.sst)).filter(v=>v!=null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; })();
+  const fast = s.spots.reduce((a,sp)=> !a || doorMin(sp.id,DAYS[0])<doorMin(a.id,DAYS[0]) ? sp : a, null);
+  const run = s.run && s.run.end>s.run.start ? `${dayShort(DAYS[s.run.start])} to ${dayShort(DAYS[s.run.end])}, ${s.run.end-s.run.start+1} great days in a row` : s.run ? `${dayLong(DAYS[s.run.start])}` : '';
+  $('view').innerHTML = `
+    <button class="back" id="back">All destinations</button>
+    <div class="dhead">
+      <span class="badge t${tier(s.great)}" aria-hidden="true">${s.great}</span>
+      <div><h2>${esc(s.dest.name)}</h2><div class="verdict">${tierWord(s.great)}: ${s.great} great and ${s.good} good day${s.good===1?'':'s'} this week.</div></div>
+    </div>
+    <div class="facts">
+      ${run ? `<p><b>Strike window:</b> ${esc(run)}.</p>` : ''}
+      <p>${esc(doorLong(fast.id, DAYS[0]))}</p>
+      ${temp!=null ? `<p>${esc(wetsuit(temp))}</p>` : ''}
+    </div>
+    <div class="week" role="group" aria-label="Best session each day">
+      ${s.days.map((x,i)=>`<button class="day ${grade(x.top?.b.score)}" data-i="${i}" aria-pressed="${selDay===i}" aria-label="${dayLong(x.d)}${x.top?`, ${x.top.s.name}, score ${x.top.b.score.toFixed(1)}`:', no data'}">
+        <b>${dayShort(x.d)}</b><span class="n">${x.top?Math.round(x.top.b.score):'–'}</span><small>${x.top?esc(x.top.s.name):''}</small></button>`).join('')}
+    </div>
+    ${s.run ? '<button class="cal" id="cal">Add strike window to calendar</button>' : ''}
+    <h3>Spots</h3>
+    <ul class="spots">${s.spots.slice().sort((a,b)=>spotGreat(b.id)-spotGreat(a.id)).map(sp=>{
+      const L2 = SURFLINE[sp.id];
+      return `<li>
+        <div class="sn">${esc(sp.name)}</div>
+        <div class="sd">${esc(waveDesc(sp))}. ${spotGreat(sp.id)} great day${spotGreat(sp.id)===1?'':'s'}. ${esc(doorShort(sp.id,DAYS[0]))}.
+          ${L2 ? `<a class="sl" href="${L2.url}" target="_blank" rel="noopener">${L2.kind==='spot'?'Surfline':'Surfline '+esc(L2.label)}</a>` : ''}</div>
+        <div class="sstrip">${DAYS.map((d,i)=>{ const b = CELLS[sp.id][d].best; const on = selHour && selHour[0]===sp.id && selHour[1]===i;
+          return `<button class="${grade(b?.score)}" data-sp="${sp.id}" data-i="${i}" aria-pressed="${!!on}" aria-label="${esc(sp.name)}, ${dayLong(d)}, ${b?'score '+b.score.toFixed(1):'no data'}">${b?Math.round(b.score):'–'}</button>`; }).join('')}</div>
+        ${selHour && selHour[0]===sp.id ? hoursTable(sp, DAYS[selHour[1]]) : ''}
+      </li>`; }).join('')}</ul>`;
+  $('back').addEventListener('click', deselect);
+  $('view').querySelectorAll('.day').forEach(b=>b.addEventListener('click',()=>{
+    const x = s.days[+b.dataset.i]; selDay = +b.dataset.i; selHour = x.top ? [x.top.s.id, +b.dataset.i] : null; renderDetail();
+    const el = $('view').querySelector('.hours'); if(el) el.scrollIntoView({behavior:reduced()?'auto':'smooth', block:'nearest'});
+  }));
+  $('view').querySelectorAll('.sstrip button').forEach(b=>b.addEventListener('click',()=>{
+    const same = selHour && selHour[0]===b.dataset.sp && selHour[1]===+b.dataset.i;
+    selHour = same ? null : [b.dataset.sp, +b.dataset.i]; selDay = null; renderDetail();
+  }));
+  const cal = $('cal'); if(cal) cal.addEventListener('click',()=>downloadICS(s));
+}
+
+function hoursTable(sp, d){
+  const c = CELLS[sp.id][d];
+  if(!c.hours.length) return '<div class="hours empty">No forecast hours for this day.</div>';
+  const tide = c.hours.some(h=>h.tide!=null);
+  return `<div class="hours"><b>${esc(sp.name)}, ${dayLong(d)}</b>
+    <div style="overflow-x:auto"><table><thead><tr><th>Time</th><th>Swell</th><th>Wind</th>${tide?'<th>Tide</th>':''}<th>Score</th></tr></thead><tbody>
+    ${c.hours.filter(h=>h.hour%2===0).map(h=>`<tr><td>${hourLabel(h.hour)}</td><td>${h.ft.toFixed(1)} ft ${Math.round(h.p)} s ${compass(h.sd)}${h.inWindow?'':'*'}</td>
+      <td>${Math.round(h.kn)} kn ${compass(h.wd)}, ${h.rel}</td>${tide?`<td>${h.tide!=null?h.tide.toFixed(1)+' m'+(h.trend?' '+(h.trend==='rising'?'rising':'falling'):''):'–'}</td>`:''}<td><b>${h.score.toFixed(1)}</b></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="empty" style="font-size:12px;margin-top:4px">Every second hour shown. * swell outside the direction this spot picks up. Tide is a model estimate.</div></div>`;
+}
+
+function downloadICS(s){
+  if(!s.run) return;
+  const ymd = d => d.replace(/-/g,'');
+  const icsEsc = v => String(v).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,');
+  const lines = s.days.slice(s.run.start, s.run.end+1).map(x=>`${dayShort(x.d)}: ${x.top.s.name}, ${x.top.b.ft.toFixed(1)} ft at ${Math.round(x.top.b.p)} s, ${Math.round(x.top.b.kn)} kn ${x.top.b.rel} (score ${x.top.b.score.toFixed(1)})`);
+  const desc = [`Planned from the forecast on ${new Date().toLocaleDateString('en-NZ')}. Recheck before you go.`, ...lines].map(icsEsc).join('\\n');
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
+  const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Swell Ops//EN','BEGIN:VEVENT',`UID:${s.did}-${ymd(DAYS[s.run.start])}@swellops`,`DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${ymd(DAYS[s.run.start])}`,`DTEND;VALUE=DATE:${ymd(addDays(DAYS[s.run.end],1))}`,
+    `SUMMARY:${icsEsc('Surf strike: '+s.dest.name)}`,`DESCRIPTION:${desc}`,'END:VEVENT','END:VCALENDAR'].join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));
+  a.download = `surf-strike-${s.did}.ics`; document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ---------- Controls ----------
+['region','reach'].forEach(g=>$(g).querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  S[g] = b.dataset.v; S.dest=''; render();
+  if(map && SUMS.length){ const bb = L.latLngBounds(SUMS.map(s=>[s.lat,s.lon])); if(bb.isValid()) map.fitBounds(bb,{padding:[30,30],maxZoom:6}); }
+})));
+$('ht').addEventListener('change',e=>{ [S.lo,S.hi] = e.target.value.split('-').map(Number); render(); });
+$('per').addEventListener('change',e=>{ S.minP = +e.target.value; render(); });
+$('wind').addEventListener('change',e=>{ S.maxKn = +e.target.value; render(); });
+['level','hand','type'].forEach(k=>$(k).addEventListener('change',e=>{ S[k] = e.target.value; render(); }));
+
+readHash(); syncControls(); initMap(); load();
+
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+
+</script>
+</body>
+</html>

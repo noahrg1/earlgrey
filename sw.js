@@ -1,9 +1,9 @@
-/* Gulf Ops offline cache.
+/* Gulf Ops and Swell Ops offline cache.
    App shell: cached on install, served cache-first, refreshed in the background.
    Map tiles: cached as you view them (capped), so areas you've looked at work offline.
    Forecasts: network first, falling back to the last forecast you loaded. */
-const VER='gulf-ops-202610181906';
-const SHELL=['./','index.html','leaflet.js','leaflet.css','manifest.webmanifest','icon-192.png','icon-512.png'];
+const VER='gulf-ops-202610261930';
+const SHELL=['./','index.html','surf.html','leaflet.js','leaflet.css','manifest.webmanifest','icon-192.png','icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VER).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>!k.startsWith(VER)).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 async function trim(name,max){const c=await caches.open(name),ks=await c.keys();for(let i=0;i<ks.length-max;i++)await c.delete(ks[i]);}

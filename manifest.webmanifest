@@ -1,7 +1,7 @@
 {
  "name": "Gulf Ops",
  "short_name": "Gulf Ops",
- "description": "Trip planner for the Desner Sport 580: Hauraki Gulf, Northland and Coromandel.",
+ "description": "Trip planners for the Desner Sport 580 around the Hauraki Gulf, Northland and Coromandel, plus Swell Ops for surf strikes.",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
@@ -19,6 +19,18 @@
    "sizes": "512x512",
    "type": "image/png",
    "purpose": "any maskable"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "Gulf Ops boat planner",
+   "short_name": "Boat",
+   "url": "./"
+  },
+  {
+   "name": "Swell Ops surf planner",
+   "short_name": "Surf",
+   "url": "surf.html"
   }
  ]
 }

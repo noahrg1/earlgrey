@@ -44,6 +44,10 @@ h2,h3{font-family:var(--cond);font-weight:700;letter-spacing:.03em}
 .jump{display:flex;gap:4px;flex-wrap:wrap}
 .jump a{font-size:13px;color:var(--muted);text-decoration:none;padding:3px 8px;border:1px solid var(--line)}
 .jump a:hover{color:var(--ink);border-color:var(--ink)}
+.apps{display:flex;border:1px solid var(--line);flex:none}
+.apps a{padding:5px 12px;font-size:13.5px;color:var(--muted);text-decoration:none}
+.apps a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.apps a:hover:not([aria-current]){color:var(--ink)}
 
 .ops{display:grid;grid-template-columns:minmax(0,1fr)}
 .side,.mapwrap,.dossier{min-width:0}
@@ -578,6 +582,7 @@ body:has(.gpshud:not([hidden])) .layers{bottom:96px}
 <div class="checkpill" id="checkpill" hidden role="status"></div>
 <header class="mast">
   <div class="wordmark">Gulf Ops<small>Desner Sport 580 with Mercury 115 Pro XS. Auckland, Northland, Coromandel</small></div>
+  <nav class="apps" aria-label="Planner"><a href="./" aria-current="page">Boat</a><a href="surf.html">Surf</a></nav>
   <div class="modes seg" role="group" aria-label="Mode"><button data-mode="missions" aria-pressed="true">Missions</button><button data-mode="free" aria-pressed="false">Freestyle</button></div>
   <nav class="jump" aria-label="Sections">
     <a href="#finder">Finder</a><a href="#brief">Brief</a><a href="#engine">Engine</a><a href="#curve-band">Curve</a><a href="#roe">Rules</a>
