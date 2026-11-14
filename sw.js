@@ -1,24 +1,16 @@
-/* Gulf Ops and Swell Ops offline cache.
-   Pages: network first, so new deploys show immediately; cached copy when offline.
-   Other app files: cached on install, served cache-first, refreshed in the background.
+/* Gulf Ops offline cache.
+   App shell: cached on install, served cache-first, refreshed in the background.
    Map tiles: cached as you view them (capped), so areas you've looked at work offline.
    Forecasts: network first, falling back to the last forecast you loaded. */
-const VER='gulf-ops-202610262230';
-const SHELL=['./','index.html','surf.html','leaflet.js','leaflet.css','manifest.webmanifest','icon-192.png','icon-512.png'];
+const VER='gulf-ops-202611140127';
+const SHELL=['./','index.html','leaflet.js','leaflet.css','manifest.webmanifest','icon-192.png','icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VER).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>!k.startsWith(VER)).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 async function trim(name,max){const c=await caches.open(name),ks=await c.keys();for(let i=0;i<ks.length-max;i++)await c.delete(ks[i]);}
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
   if(e.request.method!=='GET') return;
-  if(u.origin===location.origin){
-    const page = e.request.mode==='navigate' || /\.html$|\/$/.test(u.pathname);
-    if(page){ // pages: network first so a new deploy shows straight away, cached copy when offline
-      e.respondWith(caches.open(VER).then(async c=>{try{const r=await fetch(e.request,{cache:'no-store'});if(r.ok)c.put(e.request,r.clone());return r;}
-        catch(err){return (await c.match(e.request,{ignoreSearch:true}))||Response.error();}}));
-      return;
-    }
-    // other app files: cache first, update in the background
+  if(u.origin===location.origin){ // app shell: cache first, update in the background
     e.respondWith(caches.open(VER).then(async c=>{const hit=await c.match(e.request,{ignoreSearch:true});
       const net=fetch(e.request).then(r=>{if(r.ok)c.put(e.request,r.clone());return r;}).catch(()=>hit);
       return hit||net;}));
